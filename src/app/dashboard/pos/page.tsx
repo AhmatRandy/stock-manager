@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { getPosProducts } from "./actions";
+import { getPosProducts } from "./_actions/actions";
 import { PosClient } from "./_components/pos-client";
 
 export default async function PosPage() {

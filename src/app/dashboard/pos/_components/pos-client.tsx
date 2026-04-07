@@ -12,68 +12,74 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import {
-  checkoutAction,
-  type CartItemPayload,
-  type CheckoutState,
-} from "../actions";
+import { checkoutAction } from "../_actions/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  CartItem,
+  CartItemPayload,
+  CheckoutState,
+  Product,
+  Variant,
+} from "@/types";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type Variant = {
-  id: string;
-  name: string;
-  price: number;
-  stock: number;
-};
-
-type Product = {
-  id: string;
-  name: string;
-  variants: Variant[];
-};
-
-type CartItem = CartItemPayload & {
-  stock: number; // stok real-time untuk batas qty di UI
-};
-
-type Props = {
+interface ProductProps {
   products: Product[];
   cashierName: string;
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+}
 
 function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID");
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+function formatQty(n: number): string {
+  return parseFloat(n.toFixed(2)).toString();
+}
 
-export function PosClient({ products, cashierName }: Props) {
+function snapQty(
+  raw: number,
+  quantityType: "discrete" | "continuous",
+  step: number,
+  minOrder: number,
+  stock: number,
+): number {
+  let snapped: number;
+  if (quantityType === "discrete") {
+    snapped = Math.round(raw);
+  } else {
+    const stepInt = Math.round(step * 100);
+    const rawInt = Math.round(raw * 100);
+    snapped = (Math.round(rawInt / stepInt) * stepInt) / 100;
+  }
+  return Math.min(Math.max(snapped, minOrder), stock);
+}
+
+export function PosClient({ products, cashierName }: ProductProps) {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string>("all");
   const [discount, setDiscount] = useState(0);
   const [payment, setPayment] = useState("");
   const [result, setResult] = useState<CheckoutState | null>(null);
   const [isPending, startTransition] = useTransition();
-
-  // ── Cart operations ──────────────────────────────────────────────────────
 
   const addToCart = useCallback((product: Product, variant: Variant) => {
     if (variant.stock <= 0) return;
     setCart((prev) => {
       const existing = prev.find((i) => i.variantId === variant.id);
       if (existing) {
+        const newQty = snapQty(
+          existing.quantity + existing.step,
+          existing.quantityType,
+          existing.step,
+          existing.minOrder,
+          existing.stock,
+        );
         return prev.map((i) =>
-          i.variantId === variant.id
-            ? { ...i, quantity: Math.min(i.quantity + 1, i.stock) }
-            : i,
+          i.variantId === variant.id ? { ...i, quantity: newQty } : i,
         );
       }
       return [
@@ -82,9 +88,13 @@ export function PosClient({ products, cashierName }: Props) {
           variantId: variant.id,
           productName: product.name,
           variantName: variant.name,
+          unit: variant.unit,
           price: variant.price,
-          quantity: 1,
+          quantity: Math.min(variant.minOrder, variant.stock),
           stock: variant.stock,
+          quantityType: variant.quantityType,
+          step: variant.step,
+          minOrder: variant.minOrder,
         },
       ];
     });
@@ -94,15 +104,36 @@ export function PosClient({ products, cashierName }: Props) {
   const updateQty = useCallback((variantId: string, delta: number) => {
     setCart((prev) =>
       prev
-        .map((i) =>
-          i.variantId === variantId
-            ? {
-                ...i,
-                quantity: Math.max(0, Math.min(i.quantity + delta, i.stock)),
-              }
-            : i,
-        )
-        .filter((i) => i.quantity > 0),
+        .map((i) => {
+          if (i.variantId !== variantId) return i;
+          const newQty = snapQty(
+            i.quantity + delta,
+            i.quantityType,
+            i.step,
+            i.minOrder,
+            i.stock,
+          );
+          return { ...i, quantity: newQty };
+        })
+        .filter((i) => i.quantity >= i.minOrder),
+    );
+  }, []);
+
+  const setQty = useCallback((variantId: string, newQty: number) => {
+    setCart((prev) =>
+      prev
+        .map((i) => {
+          if (i.variantId !== variantId) return i;
+          const snapped = snapQty(
+            newQty,
+            i.quantityType,
+            i.step,
+            i.minOrder,
+            i.stock,
+          );
+          return { ...i, quantity: snapped };
+        })
+        .filter((i) => i.quantity >= i.minOrder),
     );
   }, []);
 
@@ -119,7 +150,7 @@ export function PosClient({ products, cashierName }: Props) {
   // ── Totals ───────────────────────────────────────────────────────────────
 
   const total = useMemo(
-    () => cart.reduce((s, i) => s + i.price * i.quantity, 0),
+    () => cart.reduce((s, i) => s + Math.round(i.price * i.quantity), 0),
     [cart],
   );
   const grandTotal = Math.max(0, total - discount);
@@ -128,11 +159,24 @@ export function PosClient({ products, cashierName }: Props) {
 
   // ── Filtered products ─────────────────────────────────────────────────────
 
+  // Kumpulkan daftar kategori unik dari produk
+  const categoryTabs = useMemo(() => {
+    const map = new Map<string, string>();
+    products.forEach((p) => {
+      if (p.category) map.set(p.category.id, p.category.name);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [products]);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (!q) return products;
-    return products.filter((p) => p.name.toLowerCase().includes(q));
-  }, [products, search]);
+    return products.filter((p) => {
+      const matchSearch = !q || p.name.toLowerCase().includes(q);
+      const matchCategory =
+        activeCategory === "all" || p.category?.id === activeCategory;
+      return matchSearch && matchCategory;
+    });
+  }, [products, search, activeCategory]);
 
   // ── Checkout ──────────────────────────────────────────────────────────────
 
@@ -145,10 +189,11 @@ export function PosClient({ products, cashierName }: Props) {
       discount: number;
     } = {
       items: cart.map(
-        ({ variantId, productName, variantName, price, quantity }) => ({
+        ({ variantId, productName, variantName, unit, price, quantity }) => ({
           variantId,
           productName,
           variantName,
+          unit,
           price,
           quantity,
         }),
@@ -165,7 +210,7 @@ export function PosClient({ products, cashierName }: Props) {
         null as unknown as CheckoutState,
         formData,
       );
-      console.log("Checkout result:", res);
+
       setResult(res);
       if (res?.success) {
         clearCart();
@@ -199,6 +244,37 @@ export function PosClient({ products, cashierName }: Props) {
             </span>
           </div>
         </div>
+
+        {/* Category Tabs */}
+        {categoryTabs.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setActiveCategory("all")}
+              className={[
+                "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                activeCategory === "all"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80",
+              ].join(" ")}
+            >
+              Semua
+            </button>
+            {categoryTabs.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={[
+                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                  activeCategory === cat.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80",
+                ].join(" ")}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Product Grid */}
         <ScrollArea className="flex-1 rounded-lg border">
@@ -252,12 +328,19 @@ export function PosClient({ products, cashierName }: Props) {
                             : "text-muted-foreground"
                         }`}
                       >
-                        Stok: {variant.stock}
+                        Stok: {formatQty(variant.stock)} {variant.unit}
+                      </p>
+
+                      <p className="text-xs text-muted-foreground">
+                        Min: {formatQty(variant.minOrder)}{" "}
+                        {variant.quantityType === "continuous" &&
+                          `· step ${formatQty(variant.step)}`}
                       </p>
 
                       {inCart && (
                         <p className="text-xs font-medium text-primary">
-                          + {inCart.quantity} di keranjang
+                          + {formatQty(inCart.quantity)} {inCart.unit} di
+                          keranjang
                         </p>
                       )}
                     </div>
@@ -281,7 +364,7 @@ export function PosClient({ products, cashierName }: Props) {
 
             {cart.length > 0 && (
               <span className="text-xs bg-muted px-2 py-1 rounded-full">
-                {cart.reduce((s, i) => s + i.quantity, 0)} item
+                {cart.length} produk
               </span>
             )}
           </div>
@@ -326,18 +409,34 @@ export function PosClient({ products, cashierName }: Props) {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => updateQty(item.variantId, -1)}
-                          className="rounded-md border size-7 flex items-center justify-center hover:bg-accent"
+                          onClick={() => updateQty(item.variantId, -item.step)}
+                          disabled={item.quantity <= item.minOrder}
+                          className="rounded-md border size-7 flex items-center justify-center hover:bg-accent disabled:opacity-40"
                         >
                           <Minus className="size-3" />
                         </button>
 
-                        <span className="w-8 text-center text-sm font-medium tabular-nums">
-                          {item.quantity}
+                        <input
+                          type="number"
+                          min={item.minOrder}
+                          max={item.stock}
+                          step={
+                            item.quantityType === "continuous" ? item.step : 1
+                          }
+                          value={formatQty(item.quantity)}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val)) setQty(item.variantId, val);
+                          }}
+                          className="w-20 h-7 text-center text-sm font-medium tabular-nums border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+
+                        <span className="text-xs text-muted-foreground">
+                          {item.unit}
                         </span>
 
                         <button
-                          onClick={() => updateQty(item.variantId, 1)}
+                          onClick={() => updateQty(item.variantId, item.step)}
                           disabled={item.quantity >= item.stock}
                           className="rounded-md border size-7 flex items-center justify-center hover:bg-accent disabled:opacity-40"
                         >
@@ -346,7 +445,7 @@ export function PosClient({ products, cashierName }: Props) {
                       </div>
 
                       <span className="text-sm font-semibold tabular-nums">
-                        {formatRupiah(item.price * item.quantity)}
+                        {formatRupiah(Math.round(item.price * item.quantity))}
                       </span>
                     </div>
                   </div>

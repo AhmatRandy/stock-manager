@@ -1,10 +1,13 @@
 import { Suspense } from "react";
-import { getProducts } from "./actions";
+import { getProducts } from "./_actions/actions";
+import { getCategoryOptions } from "@/app/dashboard/category/_actions/actions";
 import { ProductsClient } from "@/app/dashboard/products/_components/products-client";
 
 export default async function ProductsPage() {
-  // Fetch data di server
-  const products = await getProducts();
+  const [products, categories] = await Promise.all([
+    getProducts(),
+    getCategoryOptions(),
+  ]);
 
   return (
     <Suspense
@@ -14,7 +17,7 @@ export default async function ProductsPage() {
         </div>
       }
     >
-      <ProductsClient initialProducts={products} />
+      <ProductsClient initialProducts={products} categories={categories} />
     </Suspense>
   );
 }

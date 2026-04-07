@@ -5,18 +5,21 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductList } from "./product-list";
 import { ProductFormDialog } from "./product-form";
-import type { ProductWithVariants } from "../actions";
+import type { CategoryOption } from "@/app/dashboard/category/_actions/actions";
+import { ProductWithVariants } from "@/types";
 
 interface ProductsClientProps {
   initialProducts: ProductWithVariants[];
+  categories: CategoryOption[];
 }
 
-export function ProductsClient({ initialProducts }: ProductsClientProps) {
+export const ProductsClient = ({
+  initialProducts,
+  categories,
+}: ProductsClientProps) => {
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] =
     useState<ProductWithVariants | null>(null);
-
-  // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleAdd = () => {
     setEditingProduct(null);
@@ -49,18 +52,20 @@ export function ProductsClient({ initialProducts }: ProductsClientProps) {
         </Button>
       </div>
 
-      {/* Product List — data fresh dari server via revalidatePath */}
-      <ProductList products={initialProducts} onEdit={handleEdit} />
-
-      {/* Form Dialog */}
+      <ProductList
+        products={initialProducts}
+        categories={categories}
+        onEdit={handleEdit}
+      />
       <ProductFormDialog
         open={formOpen}
         onOpenChange={(open) => {
           if (!open) handleFormClose();
         }}
         product={editingProduct ?? undefined}
+        categories={categories}
         onSuccess={handleFormClose}
       />
     </div>
   );
-}
+};

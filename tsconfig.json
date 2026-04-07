@@ -19,7 +19,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": [
@@ -29,8 +29,7 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts",
-    "lib/menu.configts",
-    "public/**/*.d.ts" // Tambahkan ini
+    "public/**/*.d.ts"
   ],
   "exclude": ["node_modules"]
 }

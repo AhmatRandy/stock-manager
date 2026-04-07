@@ -17,7 +17,7 @@ export const sidebarMenu = [
     group: "Inventori",
     items: [
       { title: "Produk", url: "/dashboard/products", icon: Package }, // model Product
-      { title: "Kategori", url: "/dashboard/categories", icon: Tags }, // model Category
+      { title: "Kategori", url: "/dashboard/category", icon: Tags }, // model Category
     ],
   },
   {

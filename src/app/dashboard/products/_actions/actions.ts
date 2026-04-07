@@ -4,18 +4,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-
-export type ProductWithVariants = {
-  id: string;
-  name: string;
-  createdAt: Date;
-  variants: {
-    id: string;
-    name: string;
-    price: number;
-    stock: number;
-  }[];
-};
+import { toScaled, fromScaled } from "@/lib/stock";
+import { ProductWithVariants, QuantityType } from "@/types";
 
 export type ActionResult = {
   success: boolean;
@@ -24,14 +14,19 @@ export type ActionResult = {
 };
 
 const variantSchema = z.object({
-  id: z.string().optional(), // optional untuk variant baru
+  id: z.string().optional(),
   name: z.string().min(1, "Nama varian harus diisi"),
+  unit: z.string().min(1).default("pcs"),
   price: z.number().int().min(0, "Harga tidak boleh negatif"),
-  stock: z.number().int().min(0, "Stok tidak boleh negatif"),
+  stock: z.number().min(0, "Stok tidak boleh negatif"),
+  quantityType: z.enum(["discrete", "continuous"]).default("discrete"),
+  step: z.number().positive("Step harus lebih dari 0").default(1),
+  minOrder: z.number().positive("Minimum order harus lebih dari 0").default(1),
 });
 
 const productSchema = z.object({
   name: z.string().min(1, "Nama produk harus diisi"),
+  categoryId: z.string().optional().nullable(),
   variants: z
     .array(variantSchema)
     .min(1, "Produk harus memiliki minimal 1 varian"),
@@ -64,28 +59,30 @@ function getFormValue(
   return null;
 }
 
-// ─── Get All Products ─────────────────────────────────────────────────────────
-
 export async function getProducts(): Promise<ProductWithVariants[]> {
   const session = await getSession();
   if (!session) return [];
 
-  const products = await prisma.product.findMany({
+  const rows = await prisma.product.findMany({
     where: { storeId: session.storeId },
     include: {
-      variants: {
-        orderBy: { createdAt: "asc" },
-      },
+      category: { select: { id: true, name: true } },
+      variants: { orderBy: { createdAt: "asc" } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return products;
+  return rows.map((p) => ({
+    ...p,
+    variants: p.variants.map((v) => ({
+      ...v,
+      stock: fromScaled(v.stock),
+      step: fromScaled(v.step),
+      minOrder: fromScaled(v.minOrder),
+      quantityType: v.quantityType as QuantityType,
+    })),
+  }));
 }
-
-// ─── Create Product ───────────────────────────────────────────────────────────
-
-// ─── Create Product ───────────────────────────────────────────────────────────
 
 export async function createProduct(
   prevState: ActionResult | null,
@@ -100,6 +97,13 @@ export async function createProduct(
 
     // Parse FormData dengan type-safe
     const name = getFormValue(formData, "name");
+    const rawCategoryId = getFormValue(formData, "categoryId");
+    const categoryId =
+      rawCategoryId &&
+      typeof rawCategoryId === "string" &&
+      rawCategoryId.trim() !== ""
+        ? rawCategoryId.trim()
+        : null;
 
     // Validasi name ada dan bukan empty string
     if (!name || typeof name !== "string" || name.trim() === "") {
@@ -110,7 +114,11 @@ export async function createProduct(
     const variants: Array<{
       name: string;
       price: number;
+      unit: string;
       stock: number;
+      quantityType: string;
+      step: number;
+      minOrder: number;
     }> = [];
 
     let index = 0;
@@ -119,6 +127,13 @@ export async function createProduct(
       const variantName = getFormValue(formData, `variants[${index}].name`);
       const variantPrice = getFormValue(formData, `variants[${index}].price`);
       const variantStock = getFormValue(formData, `variants[${index}].stock`);
+      const variantUnit = getFormValue(formData, `variants[${index}].unit`);
+      const variantQtyType =
+        getFormValue(formData, `variants[${index}].quantityType`) ?? "discrete";
+      const variantStep =
+        getFormValue(formData, `variants[${index}].step`) ?? "1";
+      const variantMinOrder =
+        getFormValue(formData, `variants[${index}].minOrder`) ?? "1";
 
       // Skip jika variant name kosong
       if (
@@ -130,28 +145,32 @@ export async function createProduct(
         continue;
       }
 
-      // Parse price dan stock dengan validasi
+      // Parse numeric fields
       const price = Number(variantPrice);
       const stock = Number(variantStock);
+      const step = Number(variantStep);
+      const minOrder = Number(variantMinOrder);
 
-      // Validasi number parsing
-      if (isNaN(price) || isNaN(stock)) {
+      if (isNaN(price) || isNaN(stock) || isNaN(step) || isNaN(minOrder)) {
         return {
           success: false,
-          message: `Varian ${index + 1}: Harga dan stok harus berupa angka`,
+          message: `Varian ${index + 1}: Harga, stok, step, dan minimum order harus berupa angka`,
         };
       }
 
       variants.push({
         name: variantName.trim(),
-        price: Math.round(price), // Bulatkan ke integer
-        stock: Math.round(stock), // Bulatkan ke integer
+        unit: String(variantUnit ?? "pcs").trim() || "pcs",
+        price: Math.round(price),
+        stock,
+        quantityType: String(variantQtyType),
+        step,
+        minOrder,
       });
 
       index++;
     }
 
-    // Validasi minimal ada 1 variant
     if (variants.length === 0) {
       return {
         success: false,
@@ -159,14 +178,13 @@ export async function createProduct(
       };
     }
 
-    // Validate dengan Zod
     const parsed = productSchema.safeParse({
       name: name.trim(),
+      categoryId,
       variants,
     });
 
     if (!parsed.success) {
-      // Format error message yang lebih readable
       const errors = parsed.error.issues
         .map((issue) => {
           const path = issue.path.join(".");
@@ -182,7 +200,6 @@ export async function createProduct(
 
     const validatedData = parsed.data;
 
-    // Check duplicate variant names
     const variantNames = validatedData.variants.map((v) =>
       v.name.toLowerCase(),
     );
@@ -197,7 +214,6 @@ export async function createProduct(
       };
     }
 
-    // Check if product already exists (case-insensitive for SQLite)
     const existingProducts = await prisma.product.findMany({
       where: {
         storeId: session.storeId,
@@ -217,18 +233,21 @@ export async function createProduct(
         message: `Produk dengan nama "${validatedData.name}" sudah ada`,
       };
     }
-
-    // Create product with variants dalam transaction
     const newProduct = await prisma.$transaction(async (tx) => {
       const product = await tx.product.create({
         data: {
           name: validatedData.name,
           storeId: session.storeId,
+          categoryId: validatedData.categoryId ?? null,
           variants: {
             create: validatedData.variants.map((v) => ({
               name: v.name,
+              unit: v.unit,
               price: v.price,
-              stock: v.stock,
+              stock: toScaled(v.stock),
+              quantityType: v.quantityType,
+              step: toScaled(v.step),
+              minOrder: toScaled(v.minOrder),
             })),
           },
         },
@@ -240,7 +259,6 @@ export async function createProduct(
       return product;
     });
 
-    // Revalidate paths
     revalidatePath("/dashboard/products");
     revalidatePath("/dashboard/pos");
 
@@ -267,7 +285,6 @@ export async function createProduct(
         };
       }
 
-      // Return the actual error message for debugging
       return {
         success: false,
         message: `Error: ${error.message}`,
@@ -281,21 +298,17 @@ export async function createProduct(
   }
 }
 
-// ─── Update Product ───────────────────────────────────────────────────────────
-
 export async function updateProduct(
   prevState: ActionResult | null,
   productId: string,
   formData: FormData,
 ): Promise<ActionResult> {
   try {
-    // Auth
     const session = await getSession();
     if (!session) {
       return { success: false, message: "Sesi habis, silakan login ulang" };
     }
 
-    // Verify ownership
     const product = await prisma.product.findFirst({
       where: { id: productId, storeId: session.storeId },
       include: { variants: true },
@@ -305,16 +318,34 @@ export async function updateProduct(
       return { success: false, message: "Produk tidak ditemukan" };
     }
 
-    // Parse variants dari FormData
     const name = getFormValue(formData, "name") as string;
+    const rawCategoryId = getFormValue(formData, "categoryId");
+    const categoryId =
+      rawCategoryId &&
+      typeof rawCategoryId === "string" &&
+      rawCategoryId.trim() !== ""
+        ? rawCategoryId.trim()
+        : null;
     const variants: any[] = [];
     let index = 0;
 
     while (getFormValue(formData, `variants[${index}].name`)) {
       const variant: any = {
         name: getFormValue(formData, `variants[${index}].name`) as string,
+        unit:
+          String(
+            getFormValue(formData, `variants[${index}].unit`) ?? "pcs",
+          ).trim() || "pcs",
         price: Number(getFormValue(formData, `variants[${index}].price`)),
         stock: Number(getFormValue(formData, `variants[${index}].stock`)),
+        quantityType: String(
+          getFormValue(formData, `variants[${index}].quantityType`) ??
+            "discrete",
+        ),
+        step: Number(getFormValue(formData, `variants[${index}].step`) ?? "1"),
+        minOrder: Number(
+          getFormValue(formData, `variants[${index}].minOrder`) ?? "1",
+        ),
       };
       const variantId = getFormValue(formData, `variants[${index}].id`);
       if (variantId) {
@@ -325,7 +356,7 @@ export async function updateProduct(
     }
 
     // Validate dengan Zod
-    const parsed = productSchema.safeParse({ name, variants });
+    const parsed = productSchema.safeParse({ name, categoryId, variants });
 
     if (!parsed.success) {
       const firstError = parsed.error.issues[0]?.message ?? "Data tidak valid";
@@ -344,10 +375,13 @@ export async function updateProduct(
 
     // Update dalam transaction
     await prisma.$transaction(async (tx) => {
-      // Update product name
+      // Update product name + categoryId
       await tx.product.update({
         where: { id: productId },
-        data: { name: validatedData.name },
+        data: {
+          name: validatedData.name,
+          categoryId: validatedData.categoryId ?? null,
+        },
       });
 
       // Delete variants yang dihapus
@@ -367,8 +401,12 @@ export async function updateProduct(
             where: { id: variant.id },
             data: {
               name: variant.name,
+              unit: variant.unit,
               price: variant.price,
-              stock: variant.stock,
+              stock: toScaled(variant.stock),
+              quantityType: variant.quantityType,
+              step: toScaled(variant.step),
+              minOrder: toScaled(variant.minOrder),
             },
           });
         } else {
@@ -377,8 +415,12 @@ export async function updateProduct(
             data: {
               productId,
               name: variant.name,
+              unit: variant.unit,
               price: variant.price,
-              stock: variant.stock,
+              stock: toScaled(variant.stock),
+              quantityType: variant.quantityType,
+              step: toScaled(variant.step),
+              minOrder: toScaled(variant.minOrder),
             },
           });
         }
@@ -400,8 +442,6 @@ export async function updateProduct(
     };
   }
 }
-
-// ─── Delete Product ───────────────────────────────────────────────────────────
 
 export async function deleteProduct(productId: string): Promise<ActionResult> {
   try {
@@ -446,8 +486,6 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
   }
 }
 
-// ─── Quick Stock Update ───────────────────────────────────────────────────────
-
 export async function updateVariantStock(
   variantId: string,
   newStock: number,
@@ -474,7 +512,7 @@ export async function updateVariantStock(
 
     await prisma.productVariant.update({
       where: { id: variantId },
-      data: { stock: newStock },
+      data: { stock: toScaled(newStock) },
     });
 
     revalidatePath("/dashboard/products");

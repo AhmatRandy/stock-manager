@@ -3,20 +3,9 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { toScaled, fromScaled, validateQuantity } from "@/lib/stock";
 
-export type CartItemPayload = {
-  variantId: string;
-  productName: string;
-  variantName: string;
-  price: number;
-  quantity: number;
-};
-
-export type CheckoutState = {
-  success: boolean;
-  message?: string;
-  invoiceNo?: string;
-};
+import { CheckoutState, QuantityType } from "@/types";
 
 const checkoutSchema = z.object({
   items: z
@@ -26,7 +15,7 @@ const checkoutSchema = z.object({
         productName: z.string().min(1),
         variantName: z.string().min(1),
         price: z.number().int().positive(),
-        quantity: z.number().int().positive(),
+        quantity: z.number().positive(),
       }),
     )
     .min(1, "Keranjang tidak boleh kosong"),
@@ -34,24 +23,12 @@ const checkoutSchema = z.object({
   discount: z.number().int().min(0).default(0),
 });
 
-// ─── Invoice Generator ────────────────────────────────────────────────────────
-
 function generateInvoiceNo(): string {
   const now = new Date();
   const ymd = now.toISOString().slice(0, 10).replace(/-/g, "");
   const ms = String(now.getTime()).slice(-6);
   return `INV-${ymd}-${ms}`;
 }
-
-// ─── Checkout Action (ATOMIC) ─────────────────────────────────────────────────
-//
-// Urutan di dalam satu prisma.$transaction():
-//   1. Lock + validasi stok setiap variant  (updateMany dengan WHERE stock >= qty)
-//   2. Buat Transaction
-//   3. Buat TransactionItem
-//
-// Kalau salah satu step gagal (misal stok kurang dari qty saat double-click),
-// semua diroll-back otomatis → stok TIDAK bisa minus.
 
 export async function checkoutAction(
   _prevState: CheckoutState,
@@ -73,7 +50,6 @@ export async function checkoutAction(
 
   const parsed = checkoutSchema.safeParse(raw);
   if (!parsed.success) {
-    // Zod v4 uses .issues; fall back to .errors for older versions
     const issues =
       (parsed.error as any).issues ?? (parsed.error as any).errors ?? [];
     const firstError = issues[0]?.message ?? "Data tidak valid";
@@ -82,6 +58,44 @@ export async function checkoutAction(
 
   const { items, payment, discount } = parsed.data;
 
+  // ── 3. Server-side quantity validation ────────────────────────────────────
+  for (const item of items) {
+    const variant = await prisma.productVariant.findUnique({
+      where: { id: item.variantId },
+      select: {
+        name: true,
+        unit: true,
+        stock: true,
+        quantityType: true,
+        step: true,
+        minOrder: true,
+      },
+    });
+
+    if (!variant) {
+      return {
+        success: false,
+        message: `Produk tidak ditemukan: ${item.variantName}`,
+      };
+    }
+
+    const result = validateQuantity(item.quantity, {
+      quantityType: variant.quantityType as QuantityType,
+      step: fromScaled(variant.step),
+      minOrder: fromScaled(variant.minOrder),
+      stock: fromScaled(variant.stock),
+      unit: variant.unit,
+    });
+
+    if (!result.valid) {
+      return {
+        success: false,
+        message: `${item.productName} (${item.variantName}): ${result.message}`,
+      };
+    }
+  }
+
+  // ── 4. Compute totals ──────────────────────────────────────────────────────
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const grandTotal = Math.max(0, total - discount);
 
@@ -97,35 +111,38 @@ export async function checkoutAction(
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Step A: Decrement stok setiap variant HANYA jika stok mencukupi.
-      //         updateMany dengan WHERE stock >= qty adalah teknik "optimistic lock"
-      //         yang aman dari double-click dan concurrent request.
+      // Step A: Decrement stok menggunakan scaled quantities.
+      //         WHERE stock >= scaledQty adalah "optimistic lock" untuk mencegah
+      //         double-click dan concurrent request dari membuat stok minus.
       for (const item of items) {
+        const scaledQty = toScaled(item.quantity);
+
         const result = await tx.productVariant.updateMany({
           where: {
             id: item.variantId,
-            stock: { gte: item.quantity }, // ← KUNCI: hanya update kalau stok cukup
+            stock: { gte: scaledQty },
           },
           data: {
-            stock: { decrement: item.quantity },
+            stock: { decrement: scaledQty },
           },
         });
 
         if (result.count === 0) {
-          // Bisa jadi stok memang 0, atau sudah di-decrement request lain
-          // Fetch nama variant untuk pesan error yang jelas
           const variant = await tx.productVariant.findUnique({
             where: { id: item.variantId },
-            select: { name: true, stock: true },
+            select: { name: true, stock: true, unit: true },
           });
+          const sisaStok = variant
+            ? `${fromScaled(variant.stock)} ${variant.unit}`
+            : "0";
           const namaVariant = variant
-            ? `${item.productName} (${variant.name}) — stok tersisa ${variant.stock}`
+            ? `${item.productName} (${variant.name}) — stok tersisa ${sisaStok}`
             : item.variantName;
           throw new Error(`Stok tidak mencukupi: ${namaVariant}`);
         }
       }
 
-      // Step B: Buat Transaction + TransactionItems dalam satu operasi nested
+      // Step B: Buat Transaction + TransactionItems
       await tx.transaction.create({
         data: {
           invoiceNo,
@@ -142,8 +159,8 @@ export async function checkoutAction(
               productName: item.productName,
               variantName: item.variantName,
               price: item.price,
-              quantity: item.quantity,
-              subtotal: item.price * item.quantity,
+              quantity: toScaled(item.quantity),
+              subtotal: Math.round(item.price * item.quantity),
             })),
           },
         },
@@ -161,13 +178,23 @@ export async function checkoutAction(
 // ─── Load Products for POS ────────────────────────────────────────────────────
 
 export async function getPosProducts(storeId: string) {
-  return prisma.product.findMany({
+  const rows = await prisma.product.findMany({
     where: { storeId },
     include: {
-      variants: {
-        orderBy: { price: "asc" },
-      },
+      category: { select: { id: true, name: true } },
+      variants: { orderBy: { price: "asc" } },
     },
     orderBy: { name: "asc" },
   });
+
+  return rows.map((p) => ({
+    ...p,
+    variants: p.variants.map((v) => ({
+      ...v,
+      stock: fromScaled(v.stock),
+      step: fromScaled(v.step),
+      minOrder: fromScaled(v.minOrder),
+      quantityType: v.quantityType as QuantityType,
+    })),
+  }));
 }

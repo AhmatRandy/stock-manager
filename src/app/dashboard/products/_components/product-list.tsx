@@ -9,6 +9,7 @@ import {
   Minus,
   Search,
   AlertCircle,
+  Tags,
 } from "lucide-react";
 import {
   Table,
@@ -31,47 +32,47 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { deleteProduct, updateVariantStock } from "../actions";
-import type { ProductWithVariants } from "../actions";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { deleteProduct, updateVariantStock } from "../_actions/actions";
+import type { ProductWithVariants } from "../_actions/actions";
+import type { CategoryOption } from "@/app/dashboard/category/_actions/actions";
 
 type Props = {
   products: ProductWithVariants[];
+  categories: CategoryOption[];
   onEdit: (product: ProductWithVariants) => void;
 };
-
-// ─── Helper ───────────────────────────────────────────────────────────────────
 
 function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID");
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+function formatQty(n: number): string {
+  return parseFloat(n.toFixed(2)).toString();
+}
 
-export function ProductList({ products, onEdit }: Props) {
+export function ProductList({ products, categories, onEdit }: Props) {
   const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] =
     useState<ProductWithVariants | null>(null);
 
-  // useTransition (React 19)
-  // Cocok untuk: UI updates, filtering, search, state changes
-  // Membuat UI tetap responsive saat update yang berat
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // ── Filter products ──────────────────────────────────────────────────────
-
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  // ── Delete handler ───────────────────────────────────────────────────────
+  const filteredProducts = products.filter((p) => {
+    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchCategory =
+      filterCategory === "all"
+        ? true
+        : filterCategory === "none"
+          ? !p.categoryId
+          : p.categoryId === filterCategory;
+    return matchSearch && matchCategory;
+  });
 
   const handleDelete = () => {
     if (!productToDelete) return;
-
     startTransition(async () => {
       const result = await deleteProduct(productToDelete.id);
       if (result.success) {
@@ -89,20 +90,19 @@ export function ProductList({ products, onEdit }: Props) {
     setError(null);
   };
 
-  // ── Stock update handler ─────────────────────────────────────────────────
-
   const handleStockChange = (
     variantId: string,
     currentStock: number,
     delta: number,
   ) => {
-    const newStock = Math.max(0, currentStock + delta);
+    const newStock = Math.max(
+      0,
+      Math.round((currentStock + delta) * 100) / 100,
+    );
     startTransition(async () => {
       await updateVariantStock(variantId, newStock);
     });
   };
-
-  // ── Empty state ──────────────────────────────────────────────────────────
 
   if (products.length === 0) {
     return (
@@ -118,15 +118,32 @@ export function ProductList({ products, onEdit }: Props) {
 
   return (
     <>
-      {/* Search */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Cari produk..."
-          className="pl-9"
-        />
+      {/* Search + Filter */}
+      <div className="flex gap-3 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-50">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cari produk..."
+            className="pl-9"
+          />
+        </div>
+        {categories.length > 0 && (
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="flex h-9 items-center rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50 min-w-40"
+          >
+            <option value="all">Semua Kategori</option>
+            <option value="none">Tanpa Kategori</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Table */}
@@ -135,7 +152,8 @@ export function ProductList({ products, onEdit }: Props) {
           <TableHeader>
             <TableRow>
               <TableHead>Produk</TableHead>
-              <TableHead>Varian</TableHead>
+              <TableHead>Kategori</TableHead>
+              <TableHead>Variant</TableHead>
               <TableHead className="text-right">Harga</TableHead>
               <TableHead className="text-center">Stok</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
@@ -144,7 +162,7 @@ export function ProductList({ products, onEdit }: Props) {
           <TableBody>
             {filteredProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={6} className="text-center py-8">
                   <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                   <p className="text-muted-foreground">
                     Tidak ada produk ditemukan
@@ -156,7 +174,6 @@ export function ProductList({ products, onEdit }: Props) {
                 <Fragment key={product.id}>
                   {product.variants.map((variant, idx) => (
                     <TableRow key={variant.id}>
-                      {/* Product Name (only show on first variant) */}
                       {idx === 0 && (
                         <TableCell
                           rowSpan={product.variants.length}
@@ -169,27 +186,55 @@ export function ProductList({ products, onEdit }: Props) {
                         </TableCell>
                       )}
 
-                      {/* Variant Name */}
+                      {idx === 0 && (
+                        <TableCell
+                          rowSpan={product.variants.length}
+                          className="align-top"
+                        >
+                          {product.category ? (
+                            <span className="inline-flex items-center gap-1 text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full">
+                              <Tags className="h-3 w-3" />
+                              {product.category.name}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
+                          )}
+                        </TableCell>
+                      )}
+
                       <TableCell>
                         <span className="text-sm text-muted-foreground">
                           {variant.name}
                         </span>
+                        <span className="ml-1.5 text-xs text-muted-foreground/60">
+                          {(variant as any).quantityType === "continuous"
+                            ? `(kontinu, step ${(variant as any).step})`
+                            : "(diskrit)"}
+                        </span>
                       </TableCell>
 
-                      {/* Price */}
                       <TableCell className="text-right">
                         {formatRupiah(variant.price)}
                       </TableCell>
 
-                      {/* Stock with quick update */}
                       <TableCell>
                         <div className="flex items-center justify-center gap-1">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() =>
-                              handleStockChange(variant.id, variant.stock, -1)
-                            }
+                            onClick={() => {
+                              const delta =
+                                (variant as any).quantityType === "continuous"
+                                  ? ((variant as any).step ?? 1)
+                                  : 1;
+                              handleStockChange(
+                                variant.id,
+                                variant.stock,
+                                -delta,
+                              );
+                            }}
                             disabled={isPending || variant.stock === 0}
                             className="h-7 w-7 p-0"
                           >
@@ -204,14 +249,25 @@ export function ProductList({ products, onEdit }: Props) {
                                   : ""
                             }`}
                           >
-                            {variant.stock}
+                            {formatQty(variant.stock)}
+                            <span className="text-xs text-muted-foreground ml-0.5">
+                              {variant.unit}
+                            </span>
                           </span>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() =>
-                              handleStockChange(variant.id, variant.stock, 1)
-                            }
+                            onClick={() => {
+                              const delta =
+                                (variant as any).quantityType === "continuous"
+                                  ? ((variant as any).step ?? 1)
+                                  : 1;
+                              handleStockChange(
+                                variant.id,
+                                variant.stock,
+                                delta,
+                              );
+                            }}
                             disabled={isPending}
                             className="h-7 w-7 p-0"
                           >
@@ -220,7 +276,6 @@ export function ProductList({ products, onEdit }: Props) {
                         </div>
                       </TableCell>
 
-                      {/* Actions (only show on first variant) */}
                       {idx === 0 && (
                         <TableCell
                           rowSpan={product.variants.length}
@@ -256,13 +311,11 @@ export function ProductList({ products, onEdit }: Props) {
         </Table>
       </div>
 
-      {/* Summary */}
       <div className="mt-4 text-sm text-muted-foreground">
         Total: {filteredProducts.length} produk,{" "}
         {filteredProducts.reduce((sum, p) => sum + p.variants.length, 0)} varian
       </div>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

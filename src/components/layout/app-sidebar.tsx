@@ -16,7 +16,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { ShoppingCart } from "lucide-react";
-import { sidebarMenu } from "@/lib/menu.config";
+import { sidebarMenu } from "@/lib/menu";
 
 export function AppSidebar() {
   const pathname = usePathname();
