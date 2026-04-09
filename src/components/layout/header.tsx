@@ -56,12 +56,13 @@ export async function Header() {
             )}
             <DropdownMenuItem asChild>
               <form action={logoutAction}>
-                <button
+                <Button
                   type="submit"
-                  className="w-full text-left text-destructive cursor-pointer"
+                  variant="ghost"
+                  className="w-full justify-start px-2 text-destructive hover:text-destructive"
                 >
                   Keluar
-                </button>
+                </Button>
               </form>
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -51,10 +51,6 @@ export function DataTablePagination<TData>({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-          Halaman {table.getState().pagination.pageIndex + 1} dari{" "}
-          {table.getPageCount()}
-        </div>
         <div className="flex items-center space-x-2">
           <Button
             variant="outline"
@@ -74,6 +70,51 @@ export function DataTablePagination<TData>({
             <span className="sr-only">Ke halaman sebelumnya</span>
             <ChevronLeftIcon className="h-4 w-4" />
           </Button>
+
+          <div className="flex items-center gap-1">
+            {Array.from({ length: table.getPageCount() }, (_, i) => i).map(
+              (pageIndex) => {
+                const currentPage = table.getState().pagination.pageIndex;
+                const totalPages = table.getPageCount();
+
+                const showPage =
+                  pageIndex === 0 ||
+                  pageIndex === totalPages - 1 ||
+                  Math.abs(pageIndex - currentPage) <= 1;
+
+                const showEllipsisBefore =
+                  pageIndex === currentPage - 2 && currentPage > 2;
+                const showEllipsisAfter =
+                  pageIndex === currentPage + 2 && currentPage < totalPages - 3;
+
+                if (!showPage && !showEllipsisBefore && !showEllipsisAfter)
+                  return null;
+
+                if (showEllipsisBefore || showEllipsisAfter) {
+                  return (
+                    <span
+                      key={pageIndex}
+                      className="px-2 text-muted-foreground"
+                    >
+                      ...
+                    </span>
+                  );
+                }
+
+                return (
+                  <Button
+                    key={pageIndex}
+                    variant={currentPage === pageIndex ? "default" : "outline"}
+                    className="h-8 w-8 p-0"
+                    onClick={() => table.setPageIndex(pageIndex)}
+                  >
+                    {pageIndex + 1}
+                  </Button>
+                );
+              },
+            )}
+          </div>
+
           <Button
             variant="outline"
             className="h-8 w-8 p-0"

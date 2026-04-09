@@ -4,8 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { toScaled, fromScaled, validateQuantity } from "@/lib/stock";
-
-import { CheckoutState, QuantityType } from "@/types";
+import { CheckoutState, QuantityType } from "@/types/product";
 
 const checkoutSchema = z.object({
   items: z
@@ -34,13 +33,11 @@ export async function checkoutAction(
   _prevState: CheckoutState,
   formData: FormData,
 ): Promise<CheckoutState> {
-  // ── 1. Auth ────────────────────────────────────────────────────────────────
   const session = await getSession();
   if (!session) {
     return { success: false, message: "Sesi habis, silakan login ulang" };
   }
 
-  // ── 2. Parse payload ───────────────────────────────────────────────────────
   let raw: unknown;
   try {
     raw = JSON.parse(formData.get("payload") as string);
@@ -58,7 +55,6 @@ export async function checkoutAction(
 
   const { items, payment, discount } = parsed.data;
 
-  // ── 3. Server-side quantity validation ────────────────────────────────────
   for (const item of items) {
     const variant = await prisma.productVariant.findUnique({
       where: { id: item.variantId },
@@ -95,7 +91,6 @@ export async function checkoutAction(
     }
   }
 
-  // ── 4. Compute totals ──────────────────────────────────────────────────────
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const grandTotal = Math.max(0, total - discount);
 
@@ -111,9 +106,6 @@ export async function checkoutAction(
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Step A: Decrement stok menggunakan scaled quantities.
-      //         WHERE stock >= scaledQty adalah "optimistic lock" untuk mencegah
-      //         double-click dan concurrent request dari membuat stok minus.
       for (const item of items) {
         const scaledQty = toScaled(item.quantity);
 
@@ -142,7 +134,6 @@ export async function checkoutAction(
         }
       }
 
-      // Step B: Buat Transaction + TransactionItems
       await tx.transaction.create({
         data: {
           invoiceNo,
@@ -174,8 +165,6 @@ export async function checkoutAction(
     return { success: false, message };
   }
 }
-
-// ─── Load Products for POS ────────────────────────────────────────────────────
 
 export async function getPosProducts(storeId: string) {
   const rows = await prisma.product.findMany({

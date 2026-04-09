@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { toScaled, fromScaled } from "@/lib/stock";
-import { ProductWithVariants, QuantityType } from "@/types";
+import { ProductWithVariants, QuantityType } from "@/types/product";
 
 export type ActionResult = {
   success: boolean;
@@ -34,22 +34,15 @@ const productSchema = z.object({
 
 export type ProductFormData = z.infer<typeof productSchema>;
 
-// ─── Helper Functions ─────────────────────────────────────────────────────────
-
-// Helper function to get FormData value with or without useActionState prefix
-function getFormValue(
+const getFormValue = (
   formData: FormData,
   key: string,
-): FormDataEntryValue | null {
-  // First try direct key
+): FormDataEntryValue | null => {
   if (formData.has(key)) {
     return formData.get(key);
   }
 
-  // Try with prefix pattern (e.g., "1_name", "2_name", etc.)
-  // useActionState adds a numeric prefix to prevent collisions
   for (const [formKey, value] of formData.entries()) {
-    // Match pattern: {digits}_{key}
     const match = formKey.match(/^\d+_(.+)$/);
     if (match && match[1] === key) {
       return value;
@@ -57,9 +50,9 @@ function getFormValue(
   }
 
   return null;
-}
+};
 
-export async function getProducts(): Promise<ProductWithVariants[]> {
+export const getProducts = async (): Promise<ProductWithVariants[]> => {
   const session = await getSession();
   if (!session) return [];
 
@@ -82,20 +75,18 @@ export async function getProducts(): Promise<ProductWithVariants[]> {
       quantityType: v.quantityType as QuantityType,
     })),
   }));
-}
+};
 
-export async function createProduct(
+export const createProduct = async (
   prevState: ActionResult | null,
   formData: FormData,
-): Promise<ActionResult> {
+): Promise<ActionResult> => {
   try {
-    // Auth
     const session = await getSession();
     if (!session) {
       return { success: false, message: "Sesi habis, silakan login ulang" };
     }
 
-    // Parse FormData dengan type-safe
     const name = getFormValue(formData, "name");
     const rawCategoryId = getFormValue(formData, "categoryId");
     const categoryId =
@@ -105,12 +96,10 @@ export async function createProduct(
         ? rawCategoryId.trim()
         : null;
 
-    // Validasi name ada dan bukan empty string
     if (!name || typeof name !== "string" || name.trim() === "") {
       return { success: false, message: "Nama produk harus diisi" };
     }
 
-    // Parse variants dari FormData
     const variants: Array<{
       name: string;
       price: number;
@@ -135,7 +124,6 @@ export async function createProduct(
       const variantMinOrder =
         getFormValue(formData, `variants[${index}].minOrder`) ?? "1";
 
-      // Skip jika variant name kosong
       if (
         !variantName ||
         typeof variantName !== "string" ||
@@ -145,7 +133,6 @@ export async function createProduct(
         continue;
       }
 
-      // Parse numeric fields
       const price = Number(variantPrice);
       const stock = Number(variantStock);
       const step = Number(variantStep);
@@ -268,8 +255,6 @@ export async function createProduct(
       data: newProduct,
     };
   } catch (error) {
-    console.error("Create product error:", error);
-
     if (error instanceof Error) {
       if (error.message.includes("Unique constraint")) {
         return {
@@ -296,13 +281,13 @@ export async function createProduct(
       message: "Terjadi kesalahan saat menambahkan produk. Silakan coba lagi.",
     };
   }
-}
+};
 
-export async function updateProduct(
+export const updateProduct = async (
   prevState: ActionResult | null,
   productId: string,
   formData: FormData,
-): Promise<ActionResult> {
+): Promise<ActionResult> => {
   try {
     const session = await getSession();
     if (!session) {
@@ -365,7 +350,6 @@ export async function updateProduct(
 
     const validatedData = parsed.data;
 
-    // Pisahkan variant yang sudah ada vs baru
     const existingVariantIds = validatedData.variants
       .filter((v) => v.id)
       .map((v) => v.id as string);
@@ -373,9 +357,7 @@ export async function updateProduct(
       (v) => !existingVariantIds.includes(v.id),
     );
 
-    // Update dalam transaction
     await prisma.$transaction(async (tx) => {
-      // Update product name + categoryId
       await tx.product.update({
         where: { id: productId },
         data: {
@@ -384,7 +366,6 @@ export async function updateProduct(
         },
       });
 
-      // Delete variants yang dihapus
       if (variantsToDelete.length > 0) {
         await tx.productVariant.deleteMany({
           where: {
@@ -393,10 +374,8 @@ export async function updateProduct(
         });
       }
 
-      // Update atau create variants
       for (const variant of validatedData.variants) {
         if (variant.id) {
-          // Update existing
           await tx.productVariant.update({
             where: { id: variant.id },
             data: {
@@ -441,9 +420,11 @@ export async function updateProduct(
       message: "Terjadi kesalahan saat mengupdate produk",
     };
   }
-}
+};
 
-export async function deleteProduct(productId: string): Promise<ActionResult> {
+export const deleteProduct = async (
+  productId: string,
+): Promise<ActionResult> => {
   try {
     // Auth
     const session = await getSession();
@@ -478,18 +459,17 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
       message: `Produk "${product.name}" berhasil dihapus`,
     };
   } catch (error) {
-    console.error("Delete product error:", error);
     return {
       success: false,
       message: "Terjadi kesalahan saat menghapus produk",
     };
   }
-}
+};
 
-export async function updateVariantStock(
+export const updateVariantStock = async (
   variantId: string,
   newStock: number,
-): Promise<ActionResult> {
+): Promise<ActionResult> => {
   try {
     const session = await getSession();
     if (!session) {
@@ -500,7 +480,6 @@ export async function updateVariantStock(
       return { success: false, message: "Stok tidak boleh negatif" };
     }
 
-    // Verify ownership via product
     const variant = await prisma.productVariant.findUnique({
       where: { id: variantId },
       include: { product: true },
@@ -526,4 +505,4 @@ export async function updateVariantStock(
       message: "Terjadi kesalahan saat mengupdate stok",
     };
   }
-}
+};

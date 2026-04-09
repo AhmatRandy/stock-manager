@@ -1,4 +1,4 @@
-import { QuantityType } from "@/types";
+import { QuantityType } from "@/types/product";
 
 export const SCALE = 100;
 
@@ -80,11 +80,6 @@ export function validateQuantity(
   return { valid: true };
 }
 
-/**
- * Reduce stock: returns the new scaled stock after a purchase.
- * @param currentScaledStock
- * @param purchasedDisplayQty
- */
 export function reduceStock(
   currentScaledStock: number,
   purchasedDisplayQty: number,

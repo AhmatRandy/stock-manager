@@ -4,27 +4,11 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type CategoryWithCount = {
-  id: string;
-  name: string;
-  createdAt: Date;
-  _count: { products: number };
-};
-
-export type CategoryOption = {
-  id: string;
-  name: string;
-};
-
-export type ActionResult = {
-  success: boolean;
-  message?: string;
-};
-
-// ─── Schema ───────────────────────────────────────────────────────────────────
+import {
+  ActionResult,
+  CategoryOption,
+  CategoryWithCount,
+} from "@/types/category";
 
 const categorySchema = z.object({
   name: z
@@ -34,24 +18,20 @@ const categorySchema = z.object({
     .trim(),
 });
 
-// ─── Helper: periksa role OWNER ───────────────────────────────────────────────
-
-async function requireOwner() {
+const requireOwner = async () => {
   const session = await getSession();
   if (!session) return null;
   if (session.role !== "OWNER") return null;
   return session;
-}
+};
 
-function revalidate() {
+const revalidate = () => {
   revalidatePath("/dashboard/category");
   revalidatePath("/dashboard/products");
   revalidatePath("/dashboard/pos");
-}
+};
 
-// ─── Get All Categories (untuk list & select) ─────────────────────────────────
-
-export async function getCategories(): Promise<CategoryWithCount[]> {
+export const getCategories = async (): Promise<CategoryWithCount[]> => {
   const session = await getSession();
   if (!session) return [];
 
@@ -60,9 +40,9 @@ export async function getCategories(): Promise<CategoryWithCount[]> {
     include: { _count: { select: { products: true } } },
     orderBy: { name: "asc" },
   });
-}
+};
 
-export async function getCategoryOptions(): Promise<CategoryOption[]> {
+export const getCategoryOptions = async (): Promise<CategoryOption[]> => {
   const session = await getSession();
   if (!session) return [];
 
@@ -71,14 +51,12 @@ export async function getCategoryOptions(): Promise<CategoryOption[]> {
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
-}
+};
 
-// ─── Create ──────────────────────────────────────────────────────────────────
-
-export async function createCategory(
+export const createCategory = async (
   _prevState: ActionResult | null,
   formData: FormData,
-): Promise<ActionResult> {
+): Promise<ActionResult> => {
   const session = await requireOwner();
   if (!session) {
     return {
@@ -95,7 +73,6 @@ export async function createCategory(
     };
   }
 
-  // Cek duplikat nama per toko
   const exists = await prisma.category.findUnique({
     where: {
       storeId_name: { storeId: session.storeId, name: parsed.data.name },
@@ -117,15 +94,13 @@ export async function createCategory(
     success: true,
     message: `Kategori "${parsed.data.name}" berhasil ditambahkan`,
   };
-}
+};
 
-// ─── Update ──────────────────────────────────────────────────────────────────
-
-export async function updateCategory(
+export const updateCategory = async (
   _prevState: ActionResult | null,
   categoryId: string,
   formData: FormData,
-): Promise<ActionResult> {
+): Promise<ActionResult> => {
   const session = await requireOwner();
   if (!session) {
     return {
@@ -142,7 +117,6 @@ export async function updateCategory(
     };
   }
 
-  // Verify ownership
   const category = await prisma.category.findFirst({
     where: { id: categoryId, storeId: session.storeId },
   });
@@ -150,7 +124,6 @@ export async function updateCategory(
     return { success: false, message: "Kategori tidak ditemukan" };
   }
 
-  // Cek duplikat nama (selain dirinya sendiri)
   const duplicate = await prisma.category.findFirst({
     where: {
       storeId: session.storeId,
@@ -172,13 +145,11 @@ export async function updateCategory(
 
   revalidate();
   return { success: true, message: `Kategori berhasil diperbarui` };
-}
+};
 
-// ─── Delete ──────────────────────────────────────────────────────────────────
-
-export async function deleteCategory(
+export const deleteCategory = async (
   categoryId: string,
-): Promise<ActionResult> {
+): Promise<ActionResult> => {
   const session = await requireOwner();
   if (!session) {
     return {
@@ -195,7 +166,6 @@ export async function deleteCategory(
     return { success: false, message: "Kategori tidak ditemukan" };
   }
 
-  // Lepaskan produk dari kategori ini (set categoryId = null) lalu hapus kategori
   await prisma.$transaction(async (tx) => {
     await tx.product.updateMany({
       where: { categoryId },
@@ -209,4 +179,4 @@ export async function deleteCategory(
     success: true,
     message: `Kategori "${category.name}" dihapus.${category._count.products > 0 ? ` ${category._count.products} produk dipindahkan ke tanpa kategori.` : ""}`,
   };
-}
+};

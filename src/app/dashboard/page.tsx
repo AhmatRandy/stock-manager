@@ -18,7 +18,6 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   const { from, to } = await searchParams;
 
-  // ===== FILTER DATE =====
   const today = new Date();
   today.setHours(23, 59, 59, 999);
 
@@ -132,7 +131,6 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   const filterLabel = `${fromDate.toLocaleDateString("id-ID")} – ${toDate.toLocaleDateString("id-ID")}`;
 
-  // Format untuk default value date picker
   const defaultFromStr = from ?? defaultFrom.toISOString().split("T")[0];
   const defaultToStr = to ?? today.toISOString().split("T")[0];
 
@@ -140,10 +138,8 @@ export default async function DashboardPage({ searchParams }: Props) {
     <div className="space-y-8">
       <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
 
-      {/* ===== DATE RANGE FILTER (Client Component) ===== */}
       <DateRangeFilter defaultFrom={defaultFromStr} defaultTo={defaultToStr} />
 
-      {/* ===== SUMMARY CARDS ===== */}
       <div>
         <p className="text-sm text-muted-foreground mb-3">
           Periode: <span className="font-medium">{filterLabel}</span>
@@ -224,7 +220,6 @@ export default async function DashboardPage({ searchParams }: Props) {
         </CardContent>
       </Card>
 
-      {/* ===== TOP PRODUK ===== */}
       {topVariants.length > 0 && (
         <Card>
           <CardHeader>

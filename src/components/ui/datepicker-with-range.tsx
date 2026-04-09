@@ -16,11 +16,13 @@ import { useRouter } from "next/navigation";
 interface DateRangeFilterProps {
   defaultFrom?: string;
   defaultTo?: string;
+  basePath?: string;
 }
 
 export function DateRangeFilter({
   defaultFrom,
   defaultTo,
+  basePath = "/dashboard",
 }: DateRangeFilterProps) {
   const router = useRouter();
 
@@ -33,13 +35,13 @@ export function DateRangeFilter({
     if (!date?.from) return;
     const from = format(date.from, "yyyy-MM-dd");
     const to = date.to ? format(date.to, "yyyy-MM-dd") : from;
-    router.push(`/dashboard?from=${from}&to=${to}`);
+    router.push(`${basePath}?from=${from}&to=${to}`);
   };
 
   const handleReset = () => {
     const today = new Date();
     setDate({ from: today, to: today });
-    router.push("/dashboard");
+    router.push(basePath);
   };
 
   return (

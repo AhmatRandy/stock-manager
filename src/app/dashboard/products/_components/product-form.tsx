@@ -21,8 +21,8 @@ import {
 } from "@/components/ui/select";
 import { createProduct, updateProduct } from "../_actions/actions";
 import type { ActionResult } from "../_actions/actions";
-import type { CategoryOption } from "@/app/dashboard/category/_actions/actions";
-import { ProductWithVariants, Variant } from "@/types";
+import { ProductWithVariants, Variant } from "@/types/product";
+import { CategoryOption } from "@/types/category";
 
 interface ProductFormDialogProps {
   open: boolean;
@@ -209,18 +209,20 @@ export const ProductFormDialog = ({
                   className="border rounded-lg p-4 space-y-3 relative"
                 >
                   {variants.length > 1 && (
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon-xs"
                       onClick={() => removeVariant(index)}
                       disabled={isPending}
                       className="absolute top-2 right-2 text-muted-foreground hover:text-destructive"
                     >
                       <X className="h-4 w-4" />
-                    </button>
+                    </Button>
                   )}
 
                   {variant.id && (
-                    <input
+                    <Input
                       type="hidden"
                       name={`variants[${index}].id`}
                       value={variant.id}
@@ -288,7 +290,7 @@ export const ProductFormDialog = ({
                     {/* Tipe kuantitas */}
                     <div className="space-y-1">
                       <Label className="text-xs">Tipe Kuantitas</Label>
-                      <input
+                      <Input
                         type="hidden"
                         name={`variants[${index}].quantityType`}
                         value={variant.quantityType}
@@ -360,7 +362,7 @@ export const ProductFormDialog = ({
                     )}
 
                     {variant.quantityType === "discrete" && (
-                      <input
+                      <Input
                         type="hidden"
                         name={`variants[${index}].step`}
                         value={1}

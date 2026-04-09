@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback, useMemo } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   ShoppingCart,
@@ -12,66 +12,58 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
+import CurrencyInput from "react-currency-input-field";
 import { checkoutAction } from "../_actions/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { formatDisplayQty, snapQuantity } from "@/lib/stock";
 import {
   CartItem,
   CartItemPayload,
   CheckoutState,
   Product,
   Variant,
-} from "@/types";
+} from "@/types/product";
+import { formatRupiah } from "@/lib/format";
 
 interface ProductProps {
   products: Product[];
   cashierName: string;
 }
 
-function formatRupiah(n: number) {
-  return "Rp " + n.toLocaleString("id-ID");
-}
-
-function formatQty(n: number): string {
-  return parseFloat(n.toFixed(2)).toString();
-}
-
-function snapQty(
-  raw: number,
-  quantityType: "discrete" | "continuous",
-  step: number,
-  minOrder: number,
-  stock: number,
-): number {
-  let snapped: number;
-  if (quantityType === "discrete") {
-    snapped = Math.round(raw);
-  } else {
-    const stepInt = Math.round(step * 100);
-    const rawInt = Math.round(raw * 100);
-    snapped = (Math.round(rawInt / stepInt) * stepInt) / 100;
-  }
-  return Math.min(Math.max(snapped, minOrder), stock);
-}
-
-export function PosClient({ products, cashierName }: ProductProps) {
+export const PosClient = ({ products, cashierName }: ProductProps) => {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [discount, setDiscount] = useState(0);
-  const [payment, setPayment] = useState("");
+  const [payment, setPayment] = useState<number>(0);
   const [result, setResult] = useState<CheckoutState | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const addToCart = useCallback((product: Product, variant: Variant) => {
-    if (variant.stock <= 0) return;
+  const addToCart = (product: Product, variant: Variant) => {
+    const variantId = variant.id;
+    if (!variantId || variant.stock <= 0) return;
+
+    const nextItem: CartItem = {
+      variantId,
+      productName: product.name,
+      variantName: variant.name,
+      unit: variant.unit,
+      price: variant.price,
+      quantity: Math.min(variant.minOrder, variant.stock),
+      stock: variant.stock,
+      quantityType: variant.quantityType,
+      step: variant.step,
+      minOrder: variant.minOrder,
+    };
+
     setCart((prev) => {
-      const existing = prev.find((i) => i.variantId === variant.id);
+      const existing = prev.find((i) => i.variantId === variantId);
       if (existing) {
-        const newQty = snapQty(
+        const newQty = snapQuantity(
           existing.quantity + existing.step,
           existing.quantityType,
           existing.step,
@@ -79,34 +71,20 @@ export function PosClient({ products, cashierName }: ProductProps) {
           existing.stock,
         );
         return prev.map((i) =>
-          i.variantId === variant.id ? { ...i, quantity: newQty } : i,
+          i.variantId === variantId ? { ...i, quantity: newQty } : i,
         );
       }
-      return [
-        ...prev,
-        {
-          variantId: variant.id,
-          productName: product.name,
-          variantName: variant.name,
-          unit: variant.unit,
-          price: variant.price,
-          quantity: Math.min(variant.minOrder, variant.stock),
-          stock: variant.stock,
-          quantityType: variant.quantityType,
-          step: variant.step,
-          minOrder: variant.minOrder,
-        },
-      ];
+      return [...prev, nextItem];
     });
     setResult(null);
-  }, []);
+  };
 
-  const updateQty = useCallback((variantId: string, delta: number) => {
+  const updateQty = (variantId: string, delta: number) => {
     setCart((prev) =>
       prev
         .map((i) => {
           if (i.variantId !== variantId) return i;
-          const newQty = snapQty(
+          const newQty = snapQuantity(
             i.quantity + delta,
             i.quantityType,
             i.step,
@@ -117,14 +95,14 @@ export function PosClient({ products, cashierName }: ProductProps) {
         })
         .filter((i) => i.quantity >= i.minOrder),
     );
-  }, []);
+  };
 
-  const setQty = useCallback((variantId: string, newQty: number) => {
+  const setQty = (variantId: string, newQty: number) => {
     setCart((prev) =>
       prev
         .map((i) => {
           if (i.variantId !== variantId) return i;
-          const snapped = snapQty(
+          const snapped = snapQuantity(
             newQty,
             i.quantityType,
             i.step,
@@ -135,31 +113,26 @@ export function PosClient({ products, cashierName }: ProductProps) {
         })
         .filter((i) => i.quantity >= i.minOrder),
     );
-  }, []);
+  };
 
-  const removeItem = useCallback((variantId: string) => {
+  const removeItem = (variantId: string) => {
     setCart((prev) => prev.filter((i) => i.variantId !== variantId));
-  }, []);
+  };
 
-  const clearCart = useCallback(() => {
+  const clearCart = () => {
     setCart([]);
-    setPayment("");
+    setPayment(0);
     setDiscount(0);
-  }, []);
-
-  // ── Totals ───────────────────────────────────────────────────────────────
+  };
 
   const total = useMemo(
     () => cart.reduce((s, i) => s + Math.round(i.price * i.quantity), 0),
     [cart],
   );
   const grandTotal = Math.max(0, total - discount);
-  const paymentNum = parseInt(payment.replace(/\D/g, ""), 10) || 0;
+  const paymentNum = payment || 0;
   const change = paymentNum - grandTotal;
 
-  // ── Filtered products ─────────────────────────────────────────────────────
-
-  // Kumpulkan daftar kategori unik dari produk
   const categoryTabs = useMemo(() => {
     const map = new Map<string, string>();
     products.forEach((p) => {
@@ -177,8 +150,6 @@ export function PosClient({ products, cashierName }: ProductProps) {
       return matchSearch && matchCategory;
     });
   }, [products, search, activeCategory]);
-
-  // ── Checkout ──────────────────────────────────────────────────────────────
 
   const handleCheckout = () => {
     if (cart.length === 0 || paymentNum < grandTotal) return;
@@ -219,11 +190,8 @@ export function PosClient({ products, cashierName }: ProductProps) {
     });
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
     <div className="flex gap-6 h-[calc(100vh-8rem)] bg-muted/30 p-4 rounded-xl">
-      {/* ───────────── LEFT: PRODUCT AREA ───────────── */}
       <div className="flex-1 flex flex-col min-w-0 gap-4 bg-card rounded-xl p-4 shadow-sm border">
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
@@ -245,38 +213,42 @@ export function PosClient({ products, cashierName }: ProductProps) {
           </div>
         </div>
 
-        {/* Category Tabs */}
         {categoryTabs.length > 0 && (
           <div className="flex gap-2 flex-wrap">
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setActiveCategory("all")}
               className={[
-                "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
                 activeCategory === "all"
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80",
               ].join(" ")}
             >
               Semua
-            </button>
+            </Button>
             {categoryTabs.map((cat) => (
-              <button
+              <Button
                 key={cat.id}
+                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setActiveCategory(cat.id)}
                 className={[
-                  "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                  "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
                   activeCategory === cat.id
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
                     : "bg-muted text-muted-foreground hover:bg-muted/80",
                 ].join(" ")}
               >
                 {cat.name}
-              </button>
+              </Button>
             ))}
           </div>
         )}
 
-        {/* Product Grid */}
         <ScrollArea className="flex-1 rounded-lg border">
           <div className="p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
             {filtered.length === 0 && (
@@ -287,20 +259,25 @@ export function PosClient({ products, cashierName }: ProductProps) {
 
             {filtered.map((product) =>
               product.variants.map((variant) => {
-                const inCart = cart.find((c) => c.variantId === variant.id);
+                if (!variant.id) return null;
+
+                const variantId = variant.id;
+                const inCart = cart.find((c) => c.variantId === variantId);
                 const outOfStock = variant.stock <= 0;
 
                 return (
-                  <button
-                    key={variant.id}
+                  <Button
+                    key={variantId}
+                    type="button"
+                    variant="outline"
                     onClick={() => addToCart(product, variant)}
                     disabled={outOfStock}
                     className={[
-                      "group flex flex-col justify-between rounded-xl border p-4 text-left transition-all duration-150 shadow-sm",
+                      "group h-auto whitespace-normal flex flex-col items-stretch justify-between rounded-xl p-4 text-left transition-all duration-150 shadow-sm",
                       outOfStock
                         ? "opacity-40 cursor-not-allowed"
                         : inCart
-                          ? "border-primary bg-primary/10 shadow-md scale-[0.98]"
+                          ? "border-primary bg-primary/10 shadow-md scale-[0.98] hover:bg-primary/10"
                           : "hover:border-primary hover:shadow-md hover:-translate-y-0.5",
                     ].join(" ")}
                   >
@@ -328,23 +305,23 @@ export function PosClient({ products, cashierName }: ProductProps) {
                             : "text-muted-foreground"
                         }`}
                       >
-                        Stok: {formatQty(variant.stock)} {variant.unit}
+                        Stok: {formatDisplayQty(variant.stock)} {variant.unit}
                       </p>
 
                       <p className="text-xs text-muted-foreground">
-                        Min: {formatQty(variant.minOrder)}{" "}
+                        Min: {formatDisplayQty(variant.minOrder)}{" "}
                         {variant.quantityType === "continuous" &&
-                          `· step ${formatQty(variant.step)}`}
+                          `· step ${formatDisplayQty(variant.step)}`}
                       </p>
 
                       {inCart && (
                         <p className="text-xs font-medium text-primary">
-                          + {formatQty(inCart.quantity)} {inCart.unit} di
+                          + {formatDisplayQty(inCart.quantity)} {inCart.unit} di
                           keranjang
                         </p>
                       )}
                     </div>
-                  </button>
+                  </Button>
                 );
               }),
             )}
@@ -352,7 +329,6 @@ export function PosClient({ products, cashierName }: ProductProps) {
         </ScrollArea>
       </div>
 
-      {/* ───────────── RIGHT: CART AREA ───────────── */}
       <div className="w-96 shrink-0 flex flex-col rounded-xl border bg-background shadow-lg">
         {/* HEADER */}
         <div className="p-5 pb-3">
@@ -372,7 +348,6 @@ export function PosClient({ products, cashierName }: ProductProps) {
 
         <Separator />
 
-        {/* CART ITEMS (SCROLL AREA) */}
         <div className="flex-1 min-h-0">
           <ScrollArea className="h-full px-5 py-3">
             {cart.length === 0 ? (
@@ -398,23 +373,29 @@ export function PosClient({ products, cashierName }: ProductProps) {
                         )}
                       </div>
 
-                      <button
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
                         onClick={() => removeItem(item.variantId)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        className="text-muted-foreground hover:text-destructive"
                       >
                         <Trash2 className="size-4" />
-                      </button>
+                      </Button>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <button
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-xs"
                           onClick={() => updateQty(item.variantId, -item.step)}
                           disabled={item.quantity <= item.minOrder}
-                          className="rounded-md border size-7 flex items-center justify-center hover:bg-accent disabled:opacity-40"
+                          className="size-7"
                         >
                           <Minus className="size-3" />
-                        </button>
+                        </Button>
 
                         <input
                           type="number"
@@ -423,7 +404,7 @@ export function PosClient({ products, cashierName }: ProductProps) {
                           step={
                             item.quantityType === "continuous" ? item.step : 1
                           }
-                          value={formatQty(item.quantity)}
+                          value={formatDisplayQty(item.quantity)}
                           onChange={(e) => {
                             const val = parseFloat(e.target.value);
                             if (!isNaN(val)) setQty(item.variantId, val);
@@ -435,13 +416,16 @@ export function PosClient({ products, cashierName }: ProductProps) {
                           {item.unit}
                         </span>
 
-                        <button
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-xs"
                           onClick={() => updateQty(item.variantId, item.step)}
                           disabled={item.quantity >= item.stock}
-                          className="rounded-md border size-7 flex items-center justify-center hover:bg-accent disabled:opacity-40"
+                          className="size-7"
                         >
                           <Plus className="size-3" />
-                        </button>
+                        </Button>
                       </div>
 
                       <span className="text-sm font-semibold tabular-nums">
@@ -490,19 +474,20 @@ export function PosClient({ products, cashierName }: ProductProps) {
             </div>
           </div>
 
-          {/* Payment */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Nominal Bayar</label>
 
-            <Input
-              min={grandTotal}
+            <CurrencyInput
               value={payment}
-              onChange={(e) => {
-                setPayment(e.target.value);
+              onValueChange={(value) => {
+                setPayment(Number(value) || 0);
                 setResult(null);
               }}
               placeholder="Masukkan nominal..."
-              className="h-11 text-right text-lg font-semibold tabular-nums"
+              decimalsLimit={0}
+              groupSeparator="."
+              decimalSeparator=","
+              className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-right text-lg font-semibold tabular-nums ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
 
             {paymentNum > 0 && (
@@ -572,4 +557,4 @@ export function PosClient({ products, cashierName }: ProductProps) {
       </div>
     </div>
   );
-}
+};
