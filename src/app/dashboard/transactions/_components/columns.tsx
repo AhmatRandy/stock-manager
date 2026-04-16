@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table";
 import { formatRupiah } from "@/lib/format";
-import type { TransactionRow } from "../_actions/actions";
+import { TransactionRow } from "@/types/transaction";
 
 export const columns: ColumnDef<TransactionRow>[] = [
   {

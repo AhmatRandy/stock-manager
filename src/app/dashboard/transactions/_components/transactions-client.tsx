@@ -1,8 +1,9 @@
 "use client";
 
 import { DateRangeFilter } from "@/components/ui/datepicker-with-range";
-import type { TransactionRow } from "../_actions/actions";
+
 import { TransactionsList } from "./transactions-list";
+import { TransactionRow } from "@/types/transaction";
 
 interface Props {
   transactions: TransactionRow[];

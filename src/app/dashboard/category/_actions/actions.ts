@@ -18,13 +18,6 @@ const categorySchema = z.object({
     .trim(),
 });
 
-const requireOwner = async () => {
-  const session = await getSession();
-  if (!session) return null;
-  if (session.role !== "OWNER") return null;
-  return session;
-};
-
 const revalidate = () => {
   revalidatePath("/dashboard/category");
   revalidatePath("/dashboard/products");
@@ -57,8 +50,8 @@ export const createCategory = async (
   _prevState: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> => {
-  const session = await requireOwner();
-  if (!session) {
+  const session = await getSession();
+  if (!session || session.role !== "OWNER") {
     return {
       success: false,
       message: "Hanya OWNER yang dapat membuat kategori",
@@ -101,8 +94,8 @@ export const updateCategory = async (
   categoryId: string,
   formData: FormData,
 ): Promise<ActionResult> => {
-  const session = await requireOwner();
-  if (!session) {
+  const session = await getSession();
+  if (!session || session.role !== "OWNER") {
     return {
       success: false,
       message: "Hanya OWNER yang dapat mengubah kategori",
@@ -150,8 +143,8 @@ export const updateCategory = async (
 export const deleteCategory = async (
   categoryId: string,
 ): Promise<ActionResult> => {
-  const session = await requireOwner();
-  if (!session) {
+  const session = await getSession();
+  if (!session || session.role !== "OWNER") {
     return {
       success: false,
       message: "Hanya OWNER yang dapat menghapus kategori",

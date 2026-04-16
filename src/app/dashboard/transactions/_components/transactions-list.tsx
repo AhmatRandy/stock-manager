@@ -4,7 +4,7 @@ import { ClipboardList } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { columns } from "./columns";
-import type { TransactionRow } from "../_actions/actions";
+import { TransactionRow } from "@/types/transaction";
 
 type Props = {
   transactions: TransactionRow[];

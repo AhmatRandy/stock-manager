@@ -23,7 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { deleteCategory } from "../_actions/actions";
-import type { CategoryWithCount } from "../_actions/actions";
+import type { CategoryWithCount } from "@/types/category";
 import { CategoryFormDialog } from "./category-form";
 
 type Props = {

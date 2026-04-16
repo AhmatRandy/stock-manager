@@ -4,9 +4,10 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { $Enums } from "../../../../../prisma/client";
-import { requireOwner } from "@/lib/auth";
+
 import { revalidatePath } from "next/cache";
 import type { UserRow, ActionResult } from "@/types/user";
+import { getSession } from "@/lib/auth";
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ const updateUserSchema = z.object({
 // ── Queries ──────────────────────────────────────────────────────────────────
 
 export async function getUsers(): Promise<UserRow[]> {
-  const session = await requireOwner();
+  const session = await getSession();
   if (!session) return [];
 
   return prisma.user.findMany({
@@ -60,8 +61,8 @@ export async function createUser(
   _prevState: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await requireOwner();
-  if (!session) {
+  const session = await getSession();
+  if (!session || session.role !== "OWNER") {
     return { success: false, message: "Hanya OWNER yang dapat menambah user" };
   }
 
@@ -110,8 +111,8 @@ export async function updateUser(
   userId: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await requireOwner();
-  if (!session) {
+  const session = await getSession();
+  if (!session || session.role !== "OWNER") {
     return { success: false, message: "Hanya OWNER yang dapat mengubah user" };
   }
 
@@ -145,8 +146,8 @@ export async function updateUser(
 }
 
 export async function deleteUser(userId: string): Promise<ActionResult> {
-  const session = await requireOwner();
-  if (!session) {
+  const session = await getSession();
+  if (!session || session.role !== "OWNER") {
     return { success: false, message: "Hanya OWNER yang dapat menghapus user" };
   }
 

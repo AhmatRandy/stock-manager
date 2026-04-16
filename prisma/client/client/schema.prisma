@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./client"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+//////////////////////////////////////////////////////
+// CATEGORY
+//////////////////////////////////////////////////////
+
+model Category {
+  id      String @id @default(uuid())
+  name    String
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id])
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([storeId, name])
+  @@index([storeId])
+}
+
+//////////////////////////////////////////////////////
+// ENUM
+//////////////////////////////////////////////////////
+
+enum Role {
+  OWNER
+  MANAGER
+  CASHIER
+}
+
+//////////////////////////////////////////////////////
+// STORE (MULTI TENANT)
+//////////////////////////////////////////////////////
+
+model Store {
+  id      String  @id @default(uuid())
+  name    String
+  address String?
+  phone   String?
+
+  currency      String  @default("IDR")
+  taxPercent    Int     @default(0)
+  receiptHeader String?
+  receiptFooter String?
+
+  users        User[]
+  categories   Category[]
+  products     Product[]
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+}
+
+//////////////////////////////////////////////////////
+// USER
+//////////////////////////////////////////////////////
+
+model User {
+  id       String @id @default(uuid())
+  name     String
+  email    String @unique
+  password String
+  role     Role
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id])
+
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+}
+
+//////////////////////////////////////////////////////
+// PRODUCT
+//////////////////////////////////////////////////////
+
+model Product {
+  id      String @id @default(uuid())
+  name    String
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id])
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  variants ProductVariant[]
+
+  createdAt DateTime @default(now())
+
+  @@index([categoryId])
+}
+
+//////////////////////////////////////////////////////
+// PRODUCT VARIANT (STOCK & PRICE DI SINI)
+//////////////////////////////////////////////////////
+
+model ProductVariant {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  name         String // contoh: "20 ml", "Size M", "1 Kg", "Default"
+  unit         String @default("pcs") // contoh: "ml", "gram", "kg", "pcs"
+  price        Int
+  stock        Int    @default(0) // stored * 100 (scale factor)
+  quantityType String @default("discrete") // "discrete" | "continuous"
+  step         Int    @default(100) // stored * 100; only meaningful for continuous
+  minOrder     Int    @default(100) // stored * 100; minimum purchase quantity
+
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+//////////////////////////////////////////////////////
+// TRANSACTION
+//////////////////////////////////////////////////////
+
+model Transaction {
+  id        String @id @default(uuid())
+  invoiceNo String @unique
+
+  total      Int
+  discount   Int @default(0)
+  grandTotal Int
+  payment    Int
+  change     Int
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  items TransactionItem[]
+
+  createdAt DateTime @default(now())
+
+  @@index([storeId])
+  @@index([createdAt])
+}
+
+//////////////////////////////////////////////////////
+// TRANSACTION ITEM (SNAPSHOT DATA)
+//////////////////////////////////////////////////////
+
+model TransactionItem {
+  id String @id @default(uuid())
+
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  variantId     String
+  productName   String
+  variantName   String
+
+  price     Int
+  quantity  Int
+  subtotal  Int
+  createdAt DateTime @default(now())
+
+  @@index([transactionId])
+}

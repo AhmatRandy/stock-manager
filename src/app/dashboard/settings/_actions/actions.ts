@@ -2,9 +2,10 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireOwner } from "@/lib/auth";
+
 import { revalidatePath } from "next/cache";
 import type { StoreData, ActionResult } from "@/types/store";
+import { getSession } from "@/lib/auth";
 
 const settingsSchema = z.object({
   name: z
@@ -50,8 +51,8 @@ export async function updateStoreSettings(
   _prevState: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await requireOwner();
-  if (!session) {
+  const session = await getSession();
+  if (!session || session.role !== "OWNER") {
     return {
       success: false,
       message: "Hanya OWNER yang dapat mengubah pengaturan toko",
