@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createCategory, updateCategory } from "../_actions/actions";
-import type { ActionResult, CategoryWithCount } from "../_actions/actions";
+import { ActionResult, CategoryWithCount } from "@/types/category";
 
 type Props = {
   open: boolean;
