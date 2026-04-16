@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CategoryList } from "./category-list";
 import { CategoryFormDialog } from "./category-form";
-import type { CategoryWithCount } from "../_actions/actions";
+import { CategoryWithCount } from "@/types/category";
 
 type Props = {
   categories: CategoryWithCount[];
