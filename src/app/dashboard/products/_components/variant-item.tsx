@@ -106,7 +106,7 @@ export const VariantItem = ({
               <Select
                 value={variant.quantityType}
                 onValueChange={(val) =>
-                  onChange(index, { quantityType: val as any, step: 1 })
+                  onChange(index, { quantityType: val as "discrete" | "continuous", step: 1 })
                 }
                 disabled={disabled}
               >

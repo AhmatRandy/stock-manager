@@ -34,14 +34,14 @@ export function useVariants(initial?: Variant[] | null) {
     initial && initial.length
       ? initial.map((v) => ({
           tempId: makeTempId(),
-          id: (v as any)?.id,
-          name: (v as any)?.name ?? "",
-          unit: (v as any)?.unit ?? "pcs",
-          price: (v as any)?.price ?? 0,
-          stock: (v as any)?.stock ?? 0,
-          quantityType: (v as any)?.quantityType ?? "discrete",
-          step: (v as any)?.step ?? 1,
-          minOrder: (v as any)?.minOrder ?? 1,
+          id: v.id,
+          name: v.name ?? "",
+          unit: v.unit ?? "pcs",
+          price: v.price ?? 0,
+          stock: v.stock ?? 0,
+          quantityType: v.quantityType ?? "discrete",
+          step: v.step ?? 1,
+          minOrder: v.minOrder ?? 1,
         }))
       : [DEFAULT_VARIANT],
   );
@@ -85,14 +85,14 @@ export function useVariants(initial?: Variant[] | null) {
       setVariants(
         items.map((v) => ({
           tempId: makeTempId(),
-          id: (v as any)?.id,
-          name: (v as any)?.name ?? "",
-          unit: (v as any)?.unit ?? "pcs",
-          price: (v as any)?.price ?? 0,
-          stock: (v as any)?.stock ?? 0,
-          quantityType: (v as any)?.quantityType ?? "discrete",
-          step: (v as any)?.step ?? 1,
-          minOrder: (v as any)?.minOrder ?? 1,
+          id: v.id,
+          name: v.name ?? "",
+          unit: v.unit ?? "pcs",
+          price: v.price ?? 0,
+          stock: v.stock ?? 0,
+          quantityType: v.quantityType ?? "discrete",
+          step: v.step ?? 1,
+          minOrder: v.minOrder ?? 1,
         })),
       );
     else setVariants([DEFAULT_VARIANT]);

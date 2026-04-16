@@ -68,7 +68,7 @@ export const ProductFormDialog = ({
       initFrom(product?.variants ?? null);
       setSelectedCategory(product?.categoryId ?? "__none__");
     }
-  }, [open, product]);
+  }, [open, product, initFrom]);
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen && !isPending) {
@@ -150,10 +150,10 @@ export const ProductFormDialog = ({
               {variants.map((variant, index) => (
                 <VariantItem
                   key={variant.tempId}
-                  variant={variant as any}
+                  variant={variant}
                   index={index}
                   disabled={isPending}
-                  onChange={(i, patch) => updateVariant(i, patch as any)}
+                  onChange={(i, patch) => updateVariant(i, patch)}
                   onRemove={(i) => removeVariant(i)}
                 />
               ))}
