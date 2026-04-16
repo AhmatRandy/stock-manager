@@ -1,11 +1,7 @@
 import { cookies } from "next/headers";
 import { verifyJwt, type JwtPayload } from "@/lib/jwt";
 
-/**
- * Ambil session (payload JWT) dari cookie.
- * Kembalikan null jika token tidak ada atau expired.
- */
-export async function getSession(): Promise<JwtPayload | null> {
+export const getSession = async (): Promise<JwtPayload | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
   if (!token) return null;
@@ -15,13 +11,10 @@ export async function getSession(): Promise<JwtPayload | null> {
   } catch {
     return null;
   }
-}
+};
 
-/**
- * Hapus semua cookie sesi.
- */
-export async function clearSession() {
+export const clearSession = async () => {
   const cookieStore = await cookies();
   cookieStore.delete("token");
   cookieStore.delete("token_exp");
-}
+};

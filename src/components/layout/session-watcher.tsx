@@ -3,15 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-function getCookieValue(name: string): string | null {
+const getCookieValue = (name: string): string | null => {
   if (typeof document === "undefined") return null;
   const match = document.cookie
     .split("; ")
     .find((row) => row.startsWith(name + "="));
   return match ? match.split("=")[1] : null;
-}
+};
 
-export function SessionWatcher() {
+export const SessionWatcher = () => {
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -23,19 +23,17 @@ export function SessionWatcher() {
       return;
     }
 
-    const expTimestamp = parseInt(expStr, 10) * 1000; // konversi ke ms
+    const expTimestamp = parseInt(expStr, 10) * 1000;
     const now = Date.now();
     const remainingMs = expTimestamp - now;
 
     if (remainingMs <= 0) {
-      // Sudah expired, langsung logout
       doLogout();
       return;
     }
 
     setSecondsLeft(Math.ceil(remainingMs / 1000));
 
-    // Hitung mundur per detik
     const interval = setInterval(() => {
       const left = Math.ceil((expTimestamp - Date.now()) / 1000);
       if (left <= 0) {
@@ -56,20 +54,17 @@ export function SessionWatcher() {
       clearInterval(interval);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function doLogout() {
-    // Hapus cookie dari sisi client (non-httpOnly)
+  const doLogout = () => {
     document.cookie =
       "token_exp=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    // Token httpOnly akan dihapus oleh middleware saat redirect
+
     router.replace("/login");
-  }
+  };
 
   if (secondsLeft === null) return null;
 
-  // Tampilkan peringatan jika sesi hampir habis (≤ 15 detik)
   if (secondsLeft > 15) return null;
 
   return (
@@ -78,4 +73,4 @@ export function SessionWatcher() {
       <span className="font-bold">{secondsLeft} detik</span>
     </div>
   );
-}
+};

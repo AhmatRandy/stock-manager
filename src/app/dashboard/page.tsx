@@ -14,6 +14,7 @@ interface Props {
 
 export default async function DashboardPage({ searchParams }: Props) {
   const session = await getSession();
+  console.log("Session di DashboardPage:", session);
   if (!session) redirect("/login");
 
   const { from, to } = await searchParams;

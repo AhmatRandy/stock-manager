@@ -129,6 +129,10 @@ exports.Prisma.StoreScalarFieldEnum = {
   name: 'name',
   address: 'address',
   phone: 'phone',
+  currency: 'currency',
+  taxPercent: 'taxPercent',
+  receiptHeader: 'receiptHeader',
+  receiptFooter: 'receiptFooter',
   createdAt: 'createdAt'
 };
 
@@ -199,6 +203,7 @@ exports.Prisma.NullsOrder = {
 };
 exports.Role = exports.$Enums.Role = {
   OWNER: 'OWNER',
+  MANAGER: 'MANAGER',
   CASHIER: 'CASHIER'
 };
 

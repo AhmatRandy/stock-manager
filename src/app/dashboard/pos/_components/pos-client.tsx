@@ -134,11 +134,22 @@ export const PosClient = ({ products, cashierName }: ProductProps) => {
   const change = paymentNum - grandTotal;
 
   const categoryTabs = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { name: string; count: number }>();
     products.forEach((p) => {
-      if (p.category) map.set(p.category.id, p.category.name);
+      if (p.category) {
+        const existing = map.get(p.category.id);
+        if (existing) {
+          existing.count++;
+        } else {
+          map.set(p.category.id, { name: p.category.name, count: 1 });
+        }
+      }
     });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    return Array.from(map.entries()).map(([id, data]) => ({
+      id,
+      name: data.name,
+      count: data.count,
+    }));
   }, [products]);
 
   const filtered = useMemo(() => {
@@ -214,38 +225,73 @@ export const PosClient = ({ products, cashierName }: ProductProps) => {
         </div>
 
         {categoryTabs.length > 0 && (
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveCategory("all")}
-              className={[
-                "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
-                activeCategory === "all"
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80",
-              ].join(" ")}
-            >
-              Semua
-            </Button>
-            {categoryTabs.map((cat) => (
-              <Button
-                key={cat.id}
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setActiveCategory(cat.id)}
-                className={[
-                  "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
-                  activeCategory === cat.id
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80",
-                ].join(" ")}
-              >
-                {cat.name}
-              </Button>
-            ))}
+          <div className="relative">
+            <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent hover:scrollbar-thumb-primary/40">
+              <div className="flex gap-3 pb-2 min-w-max px-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveCategory("all")}
+                  className={[
+                    "group relative shrink-0 rounded-xl px-5 py-3 text-sm font-bold transition-all duration-300 ease-out border-2",
+                    activeCategory === "all"
+                      ? "bg-linear-to-r from-primary to-primary/90 text-primary-foreground border-primary shadow-xl shadow-primary/30 scale-110 hover:scale-105"
+                      : "bg-card border-border/50 text-muted-foreground hover:border-primary/50 hover:text-foreground hover:scale-105 hover:shadow-lg",
+                  ].join(" ")}
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    <span className="text-base">🏪</span>
+                    Semua Produk
+                    <span
+                      className={[
+                        "ml-1 px-2 py-0.5 rounded-full text-xs font-bold transition-colors",
+                        activeCategory === "all"
+                          ? "bg-white/20 text-primary-foreground"
+                          : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary",
+                      ].join(" ")}
+                    >
+                      {products.length}
+                    </span>
+                  </span>
+                  {activeCategory === "all" && (
+                    <span className="absolute inset-0 rounded-xl bg-linear-to-r from-primary/30 to-primary/10 blur-xl animate-pulse" />
+                  )}
+                </Button>
+                {categoryTabs.map((cat) => (
+                  <Button
+                    key={cat.id}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setActiveCategory(cat.id)}
+                    className={[
+                      "group relative shrink-0 rounded-xl px-5 py-3 text-sm font-bold transition-all duration-300 ease-out border-2",
+                      activeCategory === cat.id
+                        ? "bg-linear-to-r from-primary to-primary/90 text-primary-foreground border-primary shadow-xl shadow-primary/30 scale-110 hover:scale-105"
+                        : "bg-card border-border/50 text-muted-foreground hover:border-primary/50 hover:text-foreground hover:scale-105 hover:shadow-lg",
+                    ].join(" ")}
+                  >
+                    <span className="relative z-10 flex items-center gap-2">
+                      {cat.name}
+                      <span
+                        className={[
+                          "ml-1 px-2 py-0.5 rounded-full text-xs font-bold transition-colors",
+                          activeCategory === cat.id
+                            ? "bg-white/20 text-primary-foreground"
+                            : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary",
+                        ].join(" ")}
+                      >
+                        {cat.count}
+                      </span>
+                    </span>
+                    {activeCategory === cat.id && (
+                      <span className="absolute inset-0 rounded-xl bg-linear-to-r from-primary/30 to-primary/10 blur-xl animate-pulse" />
+                    )}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

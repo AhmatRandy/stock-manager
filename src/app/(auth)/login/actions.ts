@@ -31,8 +31,6 @@ export type LoginState = {
   };
 };
 
-// ─── Action ───────────────────────────────────────────────────────────────────
-
 export async function loginAction(
   _prevState: LoginState,
   formData: FormData,

@@ -5,8 +5,8 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductList } from "./product-list";
 import { ProductFormDialog } from "./product-form";
-import type { CategoryOption } from "@/app/dashboard/category/_actions/actions";
 import { ProductWithVariants } from "@/types/product";
+import { CategoryOption } from "@/types/category";
 
 interface ProductsClientProps {
   initialProducts: ProductWithVariants[];

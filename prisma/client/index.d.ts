@@ -55,6 +55,7 @@ export type TransactionItem = $Result.DefaultSelection<Prisma.$TransactionItemPa
 export namespace $Enums {
   export const Role: {
   OWNER: 'OWNER',
+  MANAGER: 'MANAGER',
   CASHIER: 'CASHIER'
 };
 
@@ -2685,8 +2686,18 @@ export namespace Prisma {
 
   export type AggregateStore = {
     _count: StoreCountAggregateOutputType | null
+    _avg: StoreAvgAggregateOutputType | null
+    _sum: StoreSumAggregateOutputType | null
     _min: StoreMinAggregateOutputType | null
     _max: StoreMaxAggregateOutputType | null
+  }
+
+  export type StoreAvgAggregateOutputType = {
+    taxPercent: number | null
+  }
+
+  export type StoreSumAggregateOutputType = {
+    taxPercent: number | null
   }
 
   export type StoreMinAggregateOutputType = {
@@ -2694,6 +2705,10 @@ export namespace Prisma {
     name: string | null
     address: string | null
     phone: string | null
+    currency: string | null
+    taxPercent: number | null
+    receiptHeader: string | null
+    receiptFooter: string | null
     createdAt: Date | null
   }
 
@@ -2702,6 +2717,10 @@ export namespace Prisma {
     name: string | null
     address: string | null
     phone: string | null
+    currency: string | null
+    taxPercent: number | null
+    receiptHeader: string | null
+    receiptFooter: string | null
     createdAt: Date | null
   }
 
@@ -2710,16 +2729,32 @@ export namespace Prisma {
     name: number
     address: number
     phone: number
+    currency: number
+    taxPercent: number
+    receiptHeader: number
+    receiptFooter: number
     createdAt: number
     _all: number
   }
 
+
+  export type StoreAvgAggregateInputType = {
+    taxPercent?: true
+  }
+
+  export type StoreSumAggregateInputType = {
+    taxPercent?: true
+  }
 
   export type StoreMinAggregateInputType = {
     id?: true
     name?: true
     address?: true
     phone?: true
+    currency?: true
+    taxPercent?: true
+    receiptHeader?: true
+    receiptFooter?: true
     createdAt?: true
   }
 
@@ -2728,6 +2763,10 @@ export namespace Prisma {
     name?: true
     address?: true
     phone?: true
+    currency?: true
+    taxPercent?: true
+    receiptHeader?: true
+    receiptFooter?: true
     createdAt?: true
   }
 
@@ -2736,6 +2775,10 @@ export namespace Prisma {
     name?: true
     address?: true
     phone?: true
+    currency?: true
+    taxPercent?: true
+    receiptHeader?: true
+    receiptFooter?: true
     createdAt?: true
     _all?: true
   }
@@ -2778,6 +2821,18 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
+     * Select which fields to average
+    **/
+    _avg?: StoreAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: StoreSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
      * Select which fields to find the minimum value
     **/
     _min?: StoreMinAggregateInputType
@@ -2808,6 +2863,8 @@ export namespace Prisma {
     take?: number
     skip?: number
     _count?: StoreCountAggregateInputType | true
+    _avg?: StoreAvgAggregateInputType
+    _sum?: StoreSumAggregateInputType
     _min?: StoreMinAggregateInputType
     _max?: StoreMaxAggregateInputType
   }
@@ -2817,8 +2874,14 @@ export namespace Prisma {
     name: string
     address: string | null
     phone: string | null
+    currency: string
+    taxPercent: number
+    receiptHeader: string | null
+    receiptFooter: string | null
     createdAt: Date
     _count: StoreCountAggregateOutputType | null
+    _avg: StoreAvgAggregateOutputType | null
+    _sum: StoreSumAggregateOutputType | null
     _min: StoreMinAggregateOutputType | null
     _max: StoreMaxAggregateOutputType | null
   }
@@ -2842,6 +2905,10 @@ export namespace Prisma {
     name?: boolean
     address?: boolean
     phone?: boolean
+    currency?: boolean
+    taxPercent?: boolean
+    receiptHeader?: boolean
+    receiptFooter?: boolean
     createdAt?: boolean
     users?: boolean | Store$usersArgs<ExtArgs>
     categories?: boolean | Store$categoriesArgs<ExtArgs>
@@ -2855,6 +2922,10 @@ export namespace Prisma {
     name?: boolean
     address?: boolean
     phone?: boolean
+    currency?: boolean
+    taxPercent?: boolean
+    receiptHeader?: boolean
+    receiptFooter?: boolean
     createdAt?: boolean
   }, ExtArgs["result"]["store"]>
 
@@ -2863,6 +2934,10 @@ export namespace Prisma {
     name?: boolean
     address?: boolean
     phone?: boolean
+    currency?: boolean
+    taxPercent?: boolean
+    receiptHeader?: boolean
+    receiptFooter?: boolean
     createdAt?: boolean
   }, ExtArgs["result"]["store"]>
 
@@ -2871,10 +2946,14 @@ export namespace Prisma {
     name?: boolean
     address?: boolean
     phone?: boolean
+    currency?: boolean
+    taxPercent?: boolean
+    receiptHeader?: boolean
+    receiptFooter?: boolean
     createdAt?: boolean
   }
 
-  export type StoreOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "address" | "phone" | "createdAt", ExtArgs["result"]["store"]>
+  export type StoreOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "address" | "phone" | "currency" | "taxPercent" | "receiptHeader" | "receiptFooter" | "createdAt", ExtArgs["result"]["store"]>
   export type StoreInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     users?: boolean | Store$usersArgs<ExtArgs>
     categories?: boolean | Store$categoriesArgs<ExtArgs>
@@ -2898,6 +2977,10 @@ export namespace Prisma {
       name: string
       address: string | null
       phone: string | null
+      currency: string
+      taxPercent: number
+      receiptHeader: string | null
+      receiptFooter: string | null
       createdAt: Date
     }, ExtArgs["result"]["store"]>
     composites: {}
@@ -3330,6 +3413,10 @@ export namespace Prisma {
     readonly name: FieldRef<"Store", 'String'>
     readonly address: FieldRef<"Store", 'String'>
     readonly phone: FieldRef<"Store", 'String'>
+    readonly currency: FieldRef<"Store", 'String'>
+    readonly taxPercent: FieldRef<"Store", 'Int'>
+    readonly receiptHeader: FieldRef<"Store", 'String'>
+    readonly receiptFooter: FieldRef<"Store", 'String'>
     readonly createdAt: FieldRef<"Store", 'DateTime'>
   }
     
@@ -9608,6 +9695,10 @@ export namespace Prisma {
     name: 'name',
     address: 'address',
     phone: 'phone',
+    currency: 'currency',
+    taxPercent: 'taxPercent',
+    receiptHeader: 'receiptHeader',
+    receiptFooter: 'receiptFooter',
     createdAt: 'createdAt'
   };
 
@@ -9721,16 +9812,16 @@ export namespace Prisma {
 
 
   /**
-   * Reference to a field of type 'Role'
+   * Reference to a field of type 'Int'
    */
-  export type EnumRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Role'>
+  export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
     
 
 
   /**
-   * Reference to a field of type 'Int'
+   * Reference to a field of type 'Role'
    */
-  export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
+  export type EnumRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Role'>
     
 
 
@@ -9806,6 +9897,10 @@ export namespace Prisma {
     name?: StringFilter<"Store"> | string
     address?: StringNullableFilter<"Store"> | string | null
     phone?: StringNullableFilter<"Store"> | string | null
+    currency?: StringFilter<"Store"> | string
+    taxPercent?: IntFilter<"Store"> | number
+    receiptHeader?: StringNullableFilter<"Store"> | string | null
+    receiptFooter?: StringNullableFilter<"Store"> | string | null
     createdAt?: DateTimeFilter<"Store"> | Date | string
     users?: UserListRelationFilter
     categories?: CategoryListRelationFilter
@@ -9818,6 +9913,10 @@ export namespace Prisma {
     name?: SortOrder
     address?: SortOrderInput | SortOrder
     phone?: SortOrderInput | SortOrder
+    currency?: SortOrder
+    taxPercent?: SortOrder
+    receiptHeader?: SortOrderInput | SortOrder
+    receiptFooter?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     users?: UserOrderByRelationAggregateInput
     categories?: CategoryOrderByRelationAggregateInput
@@ -9833,6 +9932,10 @@ export namespace Prisma {
     name?: StringFilter<"Store"> | string
     address?: StringNullableFilter<"Store"> | string | null
     phone?: StringNullableFilter<"Store"> | string | null
+    currency?: StringFilter<"Store"> | string
+    taxPercent?: IntFilter<"Store"> | number
+    receiptHeader?: StringNullableFilter<"Store"> | string | null
+    receiptFooter?: StringNullableFilter<"Store"> | string | null
     createdAt?: DateTimeFilter<"Store"> | Date | string
     users?: UserListRelationFilter
     categories?: CategoryListRelationFilter
@@ -9845,10 +9948,16 @@ export namespace Prisma {
     name?: SortOrder
     address?: SortOrderInput | SortOrder
     phone?: SortOrderInput | SortOrder
+    currency?: SortOrder
+    taxPercent?: SortOrder
+    receiptHeader?: SortOrderInput | SortOrder
+    receiptFooter?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     _count?: StoreCountOrderByAggregateInput
+    _avg?: StoreAvgOrderByAggregateInput
     _max?: StoreMaxOrderByAggregateInput
     _min?: StoreMinOrderByAggregateInput
+    _sum?: StoreSumOrderByAggregateInput
   }
 
   export type StoreScalarWhereWithAggregatesInput = {
@@ -9859,6 +9968,10 @@ export namespace Prisma {
     name?: StringWithAggregatesFilter<"Store"> | string
     address?: StringNullableWithAggregatesFilter<"Store"> | string | null
     phone?: StringNullableWithAggregatesFilter<"Store"> | string | null
+    currency?: StringWithAggregatesFilter<"Store"> | string
+    taxPercent?: IntWithAggregatesFilter<"Store"> | number
+    receiptHeader?: StringNullableWithAggregatesFilter<"Store"> | string | null
+    receiptFooter?: StringNullableWithAggregatesFilter<"Store"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Store"> | Date | string
   }
 
@@ -10295,6 +10408,10 @@ export namespace Prisma {
     name: string
     address?: string | null
     phone?: string | null
+    currency?: string
+    taxPercent?: number
+    receiptHeader?: string | null
+    receiptFooter?: string | null
     createdAt?: Date | string
     users?: UserCreateNestedManyWithoutStoreInput
     categories?: CategoryCreateNestedManyWithoutStoreInput
@@ -10307,6 +10424,10 @@ export namespace Prisma {
     name: string
     address?: string | null
     phone?: string | null
+    currency?: string
+    taxPercent?: number
+    receiptHeader?: string | null
+    receiptFooter?: string | null
     createdAt?: Date | string
     users?: UserUncheckedCreateNestedManyWithoutStoreInput
     categories?: CategoryUncheckedCreateNestedManyWithoutStoreInput
@@ -10319,6 +10440,10 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     address?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    taxPercent?: IntFieldUpdateOperationsInput | number
+    receiptHeader?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptFooter?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     users?: UserUpdateManyWithoutStoreNestedInput
     categories?: CategoryUpdateManyWithoutStoreNestedInput
@@ -10331,6 +10456,10 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     address?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    taxPercent?: IntFieldUpdateOperationsInput | number
+    receiptHeader?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptFooter?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     users?: UserUncheckedUpdateManyWithoutStoreNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutStoreNestedInput
@@ -10343,6 +10472,10 @@ export namespace Prisma {
     name: string
     address?: string | null
     phone?: string | null
+    currency?: string
+    taxPercent?: number
+    receiptHeader?: string | null
+    receiptFooter?: string | null
     createdAt?: Date | string
   }
 
@@ -10351,6 +10484,10 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     address?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    taxPercent?: IntFieldUpdateOperationsInput | number
+    receiptHeader?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptFooter?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -10359,6 +10496,10 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     address?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    taxPercent?: IntFieldUpdateOperationsInput | number
+    receiptHeader?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptFooter?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -10870,6 +11011,17 @@ export namespace Prisma {
     not?: NestedStringNullableFilter<$PrismaModel> | string | null
   }
 
+  export type IntFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel>
+    in?: number[]
+    notIn?: number[]
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntFilter<$PrismaModel> | number
+  }
+
   export type UserListRelationFilter = {
     every?: UserWhereInput
     some?: UserWhereInput
@@ -10910,7 +11062,15 @@ export namespace Prisma {
     name?: SortOrder
     address?: SortOrder
     phone?: SortOrder
+    currency?: SortOrder
+    taxPercent?: SortOrder
+    receiptHeader?: SortOrder
+    receiptFooter?: SortOrder
     createdAt?: SortOrder
+  }
+
+  export type StoreAvgOrderByAggregateInput = {
+    taxPercent?: SortOrder
   }
 
   export type StoreMaxOrderByAggregateInput = {
@@ -10918,6 +11078,10 @@ export namespace Prisma {
     name?: SortOrder
     address?: SortOrder
     phone?: SortOrder
+    currency?: SortOrder
+    taxPercent?: SortOrder
+    receiptHeader?: SortOrder
+    receiptFooter?: SortOrder
     createdAt?: SortOrder
   }
 
@@ -10926,7 +11090,15 @@ export namespace Prisma {
     name?: SortOrder
     address?: SortOrder
     phone?: SortOrder
+    currency?: SortOrder
+    taxPercent?: SortOrder
+    receiptHeader?: SortOrder
+    receiptFooter?: SortOrder
     createdAt?: SortOrder
+  }
+
+  export type StoreSumOrderByAggregateInput = {
+    taxPercent?: SortOrder
   }
 
   export type StringNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -10944,6 +11116,22 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedStringNullableFilter<$PrismaModel>
     _max?: NestedStringNullableFilter<$PrismaModel>
+  }
+
+  export type IntWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel>
+    in?: number[]
+    notIn?: number[]
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntWithAggregatesFilter<$PrismaModel> | number
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedFloatFilter<$PrismaModel>
+    _sum?: NestedIntFilter<$PrismaModel>
+    _min?: NestedIntFilter<$PrismaModel>
+    _max?: NestedIntFilter<$PrismaModel>
   }
 
   export type EnumRoleFilter<$PrismaModel = never> = {
@@ -11032,17 +11220,6 @@ export namespace Prisma {
     createdAt?: SortOrder
   }
 
-  export type IntFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel>
-    in?: number[]
-    notIn?: number[]
-    lt?: number | IntFieldRefInput<$PrismaModel>
-    lte?: number | IntFieldRefInput<$PrismaModel>
-    gt?: number | IntFieldRefInput<$PrismaModel>
-    gte?: number | IntFieldRefInput<$PrismaModel>
-    not?: NestedIntFilter<$PrismaModel> | number
-  }
-
   export type ProductScalarRelationFilter = {
     is?: ProductWhereInput
     isNot?: ProductWhereInput
@@ -11099,22 +11276,6 @@ export namespace Prisma {
     stock?: SortOrder
     step?: SortOrder
     minOrder?: SortOrder
-  }
-
-  export type IntWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel>
-    in?: number[]
-    notIn?: number[]
-    lt?: number | IntFieldRefInput<$PrismaModel>
-    lte?: number | IntFieldRefInput<$PrismaModel>
-    gt?: number | IntFieldRefInput<$PrismaModel>
-    gte?: number | IntFieldRefInput<$PrismaModel>
-    not?: NestedIntWithAggregatesFilter<$PrismaModel> | number
-    _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedFloatFilter<$PrismaModel>
-    _sum?: NestedIntFilter<$PrismaModel>
-    _min?: NestedIntFilter<$PrismaModel>
-    _max?: NestedIntFilter<$PrismaModel>
   }
 
   export type UserScalarRelationFilter = {
@@ -11362,6 +11523,14 @@ export namespace Prisma {
 
   export type NullableStringFieldUpdateOperationsInput = {
     set?: string | null
+  }
+
+  export type IntFieldUpdateOperationsInput = {
+    set?: number
+    increment?: number
+    decrement?: number
+    multiply?: number
+    divide?: number
   }
 
   export type UserUpdateManyWithoutStoreNestedInput = {
@@ -11614,14 +11783,6 @@ export namespace Prisma {
     connect?: ProductWhereUniqueInput
   }
 
-  export type IntFieldUpdateOperationsInput = {
-    set?: number
-    increment?: number
-    decrement?: number
-    multiply?: number
-    divide?: number
-  }
-
   export type ProductUpdateOneRequiredWithoutVariantsNestedInput = {
     create?: XOR<ProductCreateWithoutVariantsInput, ProductUncheckedCreateWithoutVariantsInput>
     connectOrCreate?: ProductCreateOrConnectWithoutVariantsInput
@@ -11823,23 +11984,6 @@ export namespace Prisma {
     not?: NestedIntNullableFilter<$PrismaModel> | number | null
   }
 
-  export type NestedEnumRoleFilter<$PrismaModel = never> = {
-    equals?: $Enums.Role | EnumRoleFieldRefInput<$PrismaModel>
-    in?: $Enums.Role[]
-    notIn?: $Enums.Role[]
-    not?: NestedEnumRoleFilter<$PrismaModel> | $Enums.Role
-  }
-
-  export type NestedEnumRoleWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: $Enums.Role | EnumRoleFieldRefInput<$PrismaModel>
-    in?: $Enums.Role[]
-    notIn?: $Enums.Role[]
-    not?: NestedEnumRoleWithAggregatesFilter<$PrismaModel> | $Enums.Role
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedEnumRoleFilter<$PrismaModel>
-    _max?: NestedEnumRoleFilter<$PrismaModel>
-  }
-
   export type NestedIntWithAggregatesFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel>
     in?: number[]
@@ -11867,11 +12011,32 @@ export namespace Prisma {
     not?: NestedFloatFilter<$PrismaModel> | number
   }
 
+  export type NestedEnumRoleFilter<$PrismaModel = never> = {
+    equals?: $Enums.Role | EnumRoleFieldRefInput<$PrismaModel>
+    in?: $Enums.Role[]
+    notIn?: $Enums.Role[]
+    not?: NestedEnumRoleFilter<$PrismaModel> | $Enums.Role
+  }
+
+  export type NestedEnumRoleWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.Role | EnumRoleFieldRefInput<$PrismaModel>
+    in?: $Enums.Role[]
+    notIn?: $Enums.Role[]
+    not?: NestedEnumRoleWithAggregatesFilter<$PrismaModel> | $Enums.Role
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumRoleFilter<$PrismaModel>
+    _max?: NestedEnumRoleFilter<$PrismaModel>
+  }
+
   export type StoreCreateWithoutCategoriesInput = {
     id?: string
     name: string
     address?: string | null
     phone?: string | null
+    currency?: string
+    taxPercent?: number
+    receiptHeader?: string | null
+    receiptFooter?: string | null
     createdAt?: Date | string
     users?: UserCreateNestedManyWithoutStoreInput
     products?: ProductCreateNestedManyWithoutStoreInput
@@ -11883,6 +12048,10 @@ export namespace Prisma {
     name: string
     address?: string | null
     phone?: string | null
+    currency?: string
+    taxPercent?: number
+    receiptHeader?: string | null
+    receiptFooter?: string | null
     createdAt?: Date | string
     users?: UserUncheckedCreateNestedManyWithoutStoreInput
     products?: ProductUncheckedCreateNestedManyWithoutStoreInput
@@ -11935,6 +12104,10 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     address?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    taxPercent?: IntFieldUpdateOperationsInput | number
+    receiptHeader?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptFooter?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     users?: UserUpdateManyWithoutStoreNestedInput
     products?: ProductUpdateManyWithoutStoreNestedInput
@@ -11946,6 +12119,10 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     address?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    taxPercent?: IntFieldUpdateOperationsInput | number
+    receiptHeader?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptFooter?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     users?: UserUncheckedUpdateManyWithoutStoreNestedInput
     products?: ProductUncheckedUpdateManyWithoutStoreNestedInput
@@ -12199,6 +12376,10 @@ export namespace Prisma {
     name: string
     address?: string | null
     phone?: string | null
+    currency?: string
+    taxPercent?: number
+    receiptHeader?: string | null
+    receiptFooter?: string | null
     createdAt?: Date | string
     categories?: CategoryCreateNestedManyWithoutStoreInput
     products?: ProductCreateNestedManyWithoutStoreInput
@@ -12210,6 +12391,10 @@ export namespace Prisma {
     name: string
     address?: string | null
     phone?: string | null
+    currency?: string
+    taxPercent?: number
+    receiptHeader?: string | null
+    receiptFooter?: string | null
     createdAt?: Date | string
     categories?: CategoryUncheckedCreateNestedManyWithoutStoreInput
     products?: ProductUncheckedCreateNestedManyWithoutStoreInput
@@ -12272,6 +12457,10 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     address?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    taxPercent?: IntFieldUpdateOperationsInput | number
+    receiptHeader?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptFooter?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     categories?: CategoryUpdateManyWithoutStoreNestedInput
     products?: ProductUpdateManyWithoutStoreNestedInput
@@ -12283,6 +12472,10 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     address?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    taxPercent?: IntFieldUpdateOperationsInput | number
+    receiptHeader?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptFooter?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     categories?: CategoryUncheckedUpdateManyWithoutStoreNestedInput
     products?: ProductUncheckedUpdateManyWithoutStoreNestedInput
@@ -12310,6 +12503,10 @@ export namespace Prisma {
     name: string
     address?: string | null
     phone?: string | null
+    currency?: string
+    taxPercent?: number
+    receiptHeader?: string | null
+    receiptFooter?: string | null
     createdAt?: Date | string
     users?: UserCreateNestedManyWithoutStoreInput
     categories?: CategoryCreateNestedManyWithoutStoreInput
@@ -12321,6 +12518,10 @@ export namespace Prisma {
     name: string
     address?: string | null
     phone?: string | null
+    currency?: string
+    taxPercent?: number
+    receiptHeader?: string | null
+    receiptFooter?: string | null
     createdAt?: Date | string
     users?: UserUncheckedCreateNestedManyWithoutStoreInput
     categories?: CategoryUncheckedCreateNestedManyWithoutStoreInput
@@ -12400,6 +12601,10 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     address?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    taxPercent?: IntFieldUpdateOperationsInput | number
+    receiptHeader?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptFooter?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     users?: UserUpdateManyWithoutStoreNestedInput
     categories?: CategoryUpdateManyWithoutStoreNestedInput
@@ -12411,6 +12616,10 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     address?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    taxPercent?: IntFieldUpdateOperationsInput | number
+    receiptHeader?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptFooter?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     users?: UserUncheckedUpdateManyWithoutStoreNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutStoreNestedInput
@@ -12527,6 +12736,10 @@ export namespace Prisma {
     name: string
     address?: string | null
     phone?: string | null
+    currency?: string
+    taxPercent?: number
+    receiptHeader?: string | null
+    receiptFooter?: string | null
     createdAt?: Date | string
     users?: UserCreateNestedManyWithoutStoreInput
     categories?: CategoryCreateNestedManyWithoutStoreInput
@@ -12538,6 +12751,10 @@ export namespace Prisma {
     name: string
     address?: string | null
     phone?: string | null
+    currency?: string
+    taxPercent?: number
+    receiptHeader?: string | null
+    receiptFooter?: string | null
     createdAt?: Date | string
     users?: UserUncheckedCreateNestedManyWithoutStoreInput
     categories?: CategoryUncheckedCreateNestedManyWithoutStoreInput
@@ -12621,6 +12838,10 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     address?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    taxPercent?: IntFieldUpdateOperationsInput | number
+    receiptHeader?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptFooter?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     users?: UserUpdateManyWithoutStoreNestedInput
     categories?: CategoryUpdateManyWithoutStoreNestedInput
@@ -12632,6 +12853,10 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     address?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    taxPercent?: IntFieldUpdateOperationsInput | number
+    receiptHeader?: NullableStringFieldUpdateOperationsInput | string | null
+    receiptFooter?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     users?: UserUncheckedUpdateManyWithoutStoreNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutStoreNestedInput
