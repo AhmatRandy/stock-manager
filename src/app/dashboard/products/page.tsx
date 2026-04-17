@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { getSession } from "@/lib/auth";
 import { getProducts } from "./_actions/actions";
+export const dynamic = "force-dynamic";
 import { getCategoryOptions } from "@/app/dashboard/category/_actions/actions";
 import { ProductsClient } from "@/app/dashboard/products/_components/products-client";
 import { notFound } from "next/navigation";

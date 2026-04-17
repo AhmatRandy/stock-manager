@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getUsers } from "./_actions/actions";
+export const dynamic = "force-dynamic";
 import { UsersClient } from "./_components/users-client";
 
 export default async function UsersPage() {
