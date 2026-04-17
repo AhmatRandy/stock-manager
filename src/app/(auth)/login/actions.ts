@@ -52,7 +52,18 @@ export async function loginAction(
   const { email, password } = result.data;
 
   // Cek user di database
-  const user = await prisma.user.findUnique({ where: { email } });
+  let user;
+  try {
+    user = await prisma.user.findUnique({ where: { email } });
+  } catch (e) {
+    // Log detail error di server agar bisa didiagnosis
+    // eslint-disable-next-line no-console
+    console.error("[login] Prisma error while finding user:", e);
+    return {
+      success: false,
+      message: "Terjadi kesalahan pada server saat mencoba login. Cek log server.",
+    };
+  }
   if (!user) {
     return {
       success: false,

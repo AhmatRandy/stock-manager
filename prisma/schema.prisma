@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  storeId   String
+  createdAt DateTime  @default(now())
+  store     Store     @relation(fields: [storeId], references: [id])
+  products  Product[]
+
+  @@unique([storeId, name])
+  @@index([storeId])
+}
+
+model Store {
+  id            String        @id @default(uuid())
+  name          String
+  address       String?
+  phone         String?
+  currency      String        @default("IDR")
+  taxPercent    Int           @default(0)
+  receiptHeader String?
+  receiptFooter String?
+  createdAt     DateTime      @default(now())
+  categories    Category[]
+  products      Product[]
+  transactions  Transaction[]
+  users         User[]
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  password     String
+  role         Role
+  storeId      String
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+  store        Store         @relation(fields: [storeId], references: [id])
+}
+
+model Product {
+  id         String           @id @default(uuid())
+  name       String
+  storeId    String
+  categoryId String?
+  createdAt  DateTime         @default(now())
+  category   Category?        @relation(fields: [categoryId], references: [id])
+  store      Store            @relation(fields: [storeId], references: [id])
+  variants   ProductVariant[]
+
+  @@index([categoryId])
+}
+
+model ProductVariant {
+  id           String   @id @default(uuid())
+  productId    String
+  name         String
+  unit         String   @default("pcs")
+  price        Int
+  stock        Int      @default(0)
+  quantityType String   @default("discrete")
+  step         Int      @default(100)
+  minOrder     Int      @default(100)
+  createdAt    DateTime @default(now())
+  product      Product  @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+}
+
+model Transaction {
+  id         String            @id @default(uuid())
+  invoiceNo  String            @unique
+  total      Int
+  discount   Int               @default(0)
+  grandTotal Int
+  payment    Int
+  change     Int
+  storeId    String
+  userId     String
+  createdAt  DateTime          @default(now())
+  store      Store             @relation(fields: [storeId], references: [id])
+  user       User              @relation(fields: [userId], references: [id])
+  items      TransactionItem[]
+
+  @@index([storeId])
+  @@index([createdAt])
+}
+
+model TransactionItem {
+  id            String      @id @default(uuid())
+  transactionId String
+  variantId     String
+  productName   String
+  variantName   String
+  price         Int
+  quantity      Int
+  subtotal      Int
+  createdAt     DateTime    @default(now())
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  @@index([transactionId])
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  CASHIER
+}

@@ -1,12 +1,6 @@
 import "dotenv/config";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
-import { PrismaClient } from "./client";
+import prisma from "../src/lib/prisma";
 import * as bcrypt from "bcryptjs";
-
-const adapter = new PrismaLibSql({
-  url: process.env.DATABASE_URL ?? "file:./dev.db",
-});
-const prisma = new PrismaClient({ adapter });
 
 // ─── Helper: tanggal relatif terhadap hari ini ────────────────────────────────
 // daysAgo=0 → hari ini, daysAgo=6 → 6 hari lalu

@@ -56,13 +56,36 @@ export const getProducts = async (): Promise<ProductWithVariants[]> => {
   const session = await getSession();
   if (!session) return [];
 
+  // Limit number of products and variants returned to improve performance
   const rows = await prisma.product.findMany({
     where: { storeId: session.storeId },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      storeId: true,
+      categoryId: true,
+      createdAt: true,
       category: { select: { id: true, name: true } },
-      variants: { orderBy: { createdAt: "asc" } },
+      // Fetch only a few variants per product (e.g. latest 5) to avoid large payloads
+      variants: {
+        orderBy: { createdAt: "asc" },
+        take: 5,
+        select: {
+          id: true,
+          productId: true,
+          name: true,
+          unit: true,
+          price: true,
+          stock: true,
+          quantityType: true,
+          step: true,
+          minOrder: true,
+          createdAt: true,
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
+    take: 50,
   });
 
   return rows.map((p) => ({
