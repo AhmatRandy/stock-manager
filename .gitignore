@@ -50,3 +50,5 @@ next-env.d.ts
 
 /lib/generated/prisma
 prisma/client
+
+/src/generated/prisma

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-export const dynamic = "force-dynamic";
+
 import { getSession } from "@/lib/auth";
 import { getCategories } from "./_actions/actions";
 import { CategoryClient } from "./_components/category-client";
