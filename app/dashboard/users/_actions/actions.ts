@@ -3,11 +3,11 @@
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { $Enums } from "../../../../../prisma/client";
 
 import { revalidatePath } from "next/cache";
 import type { UserRow, ActionResult } from "@/types/user";
 import { getSession } from "@/lib/auth";
+import { $Enums } from "@/prisma/client/client";
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
 
