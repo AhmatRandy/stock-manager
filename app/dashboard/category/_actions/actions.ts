@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import type * as Prisma from "@prisma/client";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import {
@@ -159,7 +160,7 @@ export const deleteCategory = async (
     return { success: false, message: "Kategori tidak ditemukan" };
   }
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: any) => {
     await tx.product.updateMany({
       where: { categoryId },
       data: { categoryId: null },
