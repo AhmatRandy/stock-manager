@@ -166,14 +166,35 @@ export async function checkoutAction(
   }
 }
 
-export async function getPosProducts(storeId: string) {
+export async function getPosProducts(
+  storeId: string,
+  options?: { take?: number; page?: number; search?: string },
+) {
+  const take = options?.take ?? 100;
+  const page = options?.page && options.page > 0 ? options.page : 1;
+  const skip = (page - 1) * take;
+
+  const where: any = { storeId };
+  if (options?.search && options.search.trim() !== "") {
+    where.OR = [
+      { name: { contains: options.search, mode: "insensitive" } },
+      {
+        variants: {
+          some: { name: { contains: options.search, mode: "insensitive" } },
+        },
+      },
+    ];
+  }
+
   const rows = await prisma.product.findMany({
-    where: { storeId },
+    where,
     include: {
       category: { select: { id: true, name: true } },
       variants: { orderBy: { price: "asc" } },
     },
     orderBy: { name: "asc" },
+    skip,
+    take,
   });
 
   return rows.map((p) => ({

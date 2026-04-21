@@ -89,34 +89,30 @@ export default async function DashboardPage({ searchParams }: Props) {
       take: 5,
     }),
 
-    prisma.transaction.findMany({
-      where: {
-        storeId: session.storeId,
-        createdAt: { gte: sevenDaysAgo },
-      },
-      select: {
-        createdAt: true,
-        grandTotal: true,
-      },
-    }),
+    // Aggregate daily totals in the database to reduce payload
+    prisma.$queryRaw`
+      SELECT date_trunc('day', "createdAt")::date AS day, SUM("grandTotal") AS total
+      FROM "Transaction"
+      WHERE "storeId" = ${session.storeId} AND "createdAt" >= ${sevenDaysAgo} AND "createdAt" <= ${toDate}
+      GROUP BY day
+      ORDER BY day ASC
+    `,
   ]);
 
   const totalRevenue = totalSales._sum.grandTotal ?? 0;
   const totalQty = totalItems._sum.quantity ?? 0;
 
+  // last7DaysTransactions is an array of { day: Date|string, total: string|number }
+  const aggMap = new Map<string, number>();
+  (last7DaysTransactions as Array<any>).forEach((r) => {
+    const d = new Date(r.day).toDateString();
+    aggMap.set(d, Number(r.total ?? 0));
+  });
+
   const chartData = Array.from({ length: 7 }).map((_, i) => {
     const date = new Date(sevenDaysAgo);
     date.setDate(date.getDate() + i);
-    const dailyTotal = last7DaysTransactions
-      .filter(
-        (t: { createdAt: Date; grandTotal: number }) =>
-          t.createdAt.toDateString() === date.toDateString(),
-      )
-      .reduce(
-        (sum: number, t: { createdAt: Date; grandTotal: number }) =>
-          sum + t.grandTotal,
-        0,
-      );
+    const dailyTotal = aggMap.get(date.toDateString()) ?? 0;
 
     return {
       label: date.toLocaleDateString("id-ID", { weekday: "short" }),

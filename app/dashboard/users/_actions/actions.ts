@@ -44,14 +44,23 @@ const updateUserSchema = z.object({
 
 // ── Queries ──────────────────────────────────────────────────────────────────
 
-export async function getUsers(): Promise<UserRow[]> {
+export async function getUsers(options?: {
+  page?: number;
+  take?: number;
+}): Promise<UserRow[]> {
   const session = await getSession();
   if (!session) return [];
+
+  const take = options?.take ?? 100;
+  const page = options?.page && options.page > 0 ? options.page : 1;
+  const skip = (page - 1) * take;
 
   return prisma.user.findMany({
     where: { storeId: session.storeId },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
     orderBy: { createdAt: "asc" },
+    skip,
+    take,
   }) as Promise<UserRow[]>;
 }
 

@@ -25,25 +25,43 @@ const revalidate = () => {
   revalidatePath("/dashboard/pos");
 };
 
-export const getCategories = async (): Promise<CategoryWithCount[]> => {
+export const getCategories = async (options?: {
+  page?: number;
+  take?: number;
+}): Promise<CategoryWithCount[]> => {
   const session = await getSession();
   if (!session) return [];
+
+  const take = options?.take ?? 100;
+  const page = options?.page && options.page > 0 ? options.page : 1;
+  const skip = (page - 1) * take;
 
   return prisma.category.findMany({
     where: { storeId: session.storeId },
     include: { _count: { select: { products: true } } },
     orderBy: { name: "asc" },
+    skip,
+    take,
   });
 };
 
-export const getCategoryOptions = async (): Promise<CategoryOption[]> => {
+export const getCategoryOptions = async (options?: {
+  take?: number;
+  page?: number;
+}): Promise<CategoryOption[]> => {
   const session = await getSession();
   if (!session) return [];
+
+  const take = options?.take ?? 100;
+  const page = options?.page && options.page > 0 ? options.page : 1;
+  const skip = (page - 1) * take;
 
   return prisma.category.findMany({
     where: { storeId: session.storeId },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
+    skip,
+    take,
   });
 };
 

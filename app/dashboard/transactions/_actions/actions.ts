@@ -7,6 +7,8 @@ import { TransactionDetail, TransactionRow } from "@/types/transaction";
 export const getTransactions = async (params?: {
   from?: string;
   to?: string;
+  page?: number;
+  take?: number;
 }): Promise<TransactionRow[]> => {
   const session = await getSession();
   if (!session) return [];
@@ -23,6 +25,10 @@ export const getTransactions = async (params?: {
     : thirtyDaysAgo;
   const toDate = params?.to ? new Date(params.to + "T23:59:59") : today;
 
+  const take = params?.take ?? 50;
+  const page = params?.page && params.page > 0 ? params.page : 1;
+  const skip = (page - 1) * take;
+
   return prisma.transaction.findMany({
     where: {
       storeId: session.storeId,
@@ -33,6 +39,8 @@ export const getTransactions = async (params?: {
       _count: { select: { items: true } },
     },
     orderBy: { createdAt: "desc" },
+    skip,
+    take,
   });
 };
 

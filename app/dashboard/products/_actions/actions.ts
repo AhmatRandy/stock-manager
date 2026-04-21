@@ -224,20 +224,16 @@ export const createProduct = async (
       };
     }
 
-    const existingProducts = await prisma.product.findMany({
+    // Check duplicate using case-insensitive query at DB level
+    const existing = await prisma.product.findFirst({
       where: {
         storeId: session.storeId,
+        name: { equals: validatedData.name, mode: "insensitive" },
       },
-      select: {
-        name: true,
-      },
+      select: { id: true, name: true },
     });
 
-    const isDuplicate = existingProducts.some(
-      (p) => p.name.toLowerCase() === validatedData.name.toLowerCase(),
-    );
-
-    if (isDuplicate) {
+    if (existing) {
       return {
         success: false,
         message: `Produk dengan nama "${validatedData.name}" sudah ada`,
@@ -278,14 +274,19 @@ export const createProduct = async (
       data: newProduct,
     };
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.message.includes("Unique constraint")) {
-        return {
-          success: false,
-          message: "Produk dengan nama ini sudah ada",
-        };
-      }
+    // Detect Prisma unique constraint error (P2002) without relying on runtime import
+    if (
+      error &&
+      typeof (error as any).code === "string" &&
+      (error as any).code === "P2002"
+    ) {
+      return {
+        success: false,
+        message: "Produk dengan nama ini sudah ada",
+      };
+    }
 
+    if (error instanceof Error) {
       if (error.message.includes("Invalid")) {
         return {
           success: false,

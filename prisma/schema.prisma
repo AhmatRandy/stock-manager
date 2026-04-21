@@ -57,6 +57,7 @@ model Product {
   store      Store            @relation(fields: [storeId], references: [id])
   variants   ProductVariant[]
 
+  @@unique([storeId, name])
   @@index([categoryId])
 }
 
@@ -93,6 +94,7 @@ model Transaction {
 
   @@index([storeId])
   @@index([createdAt])
+  @@index([storeId, createdAt])
 }
 
 model TransactionItem {
@@ -108,6 +110,7 @@ model TransactionItem {
   transaction   Transaction @relation(fields: [transactionId], references: [id])
 
   @@index([transactionId])
+  @@index([variantId, createdAt])
 }
 
 enum Role {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ShoppingCart,
   Plus,
@@ -31,10 +31,22 @@ import { formatRupiah } from "@/lib/format";
 interface ProductProps {
   products: Product[];
   cashierName: string;
+  page?: number;
+  take?: number;
+  hasNext?: boolean;
+  searchQuery?: string;
 }
 
-export const PosClient = ({ products, cashierName }: ProductProps) => {
+export const PosClient = ({
+  products,
+  cashierName,
+  page = 1,
+  take = 100,
+  hasNext = false,
+  searchQuery = "",
+}: ProductProps) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("all");
@@ -77,6 +89,14 @@ export const PosClient = ({ products, cashierName }: ProductProps) => {
       return [...prev, nextItem];
     });
     setResult(null);
+  };
+
+  const setPage = (p: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", String(p));
+    params.set("take", String(take));
+    if (searchQuery) params.set("search", searchQuery);
+    router.push(`/dashboard/pos?${params.toString()}`);
   };
 
   const updateQty = (variantId: string, delta: number) => {
@@ -221,6 +241,29 @@ export const PosClient = ({ products, cashierName }: ProductProps) => {
             <span className="ml-2 font-semibold text-foreground">
               {cashierName}
             </span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page <= 1}
+            >
+              Sebelumnya
+            </Button>
+            <div className="text-sm text-muted-foreground">Halaman {page}</div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPage(page + 1)}
+              disabled={!hasNext}
+            >
+              Berikutnya
+            </Button>
           </div>
         </div>
 
