@@ -56,7 +56,6 @@ export const getProducts = async (): Promise<ProductWithVariants[]> => {
   const session = await getSession();
   if (!session) return [];
 
-  // Limit number of products and variants returned to improve performance
   const rows = await prisma.product.findMany({
     where: { storeId: session.storeId },
     select: {
@@ -66,7 +65,7 @@ export const getProducts = async (): Promise<ProductWithVariants[]> => {
       categoryId: true,
       createdAt: true,
       category: { select: { id: true, name: true } },
-      // Fetch only a few variants per product (e.g. latest 5) to avoid large payloads
+
       variants: {
         orderBy: { createdAt: "asc" },
         take: 5,
@@ -274,7 +273,6 @@ export const createProduct = async (
       data: newProduct,
     };
   } catch (error) {
-    // Detect Prisma unique constraint error (P2002) without relying on runtime import
     if (
       error &&
       typeof (error as any).code === "string" &&
@@ -438,7 +436,6 @@ export const updateProduct = async (
       message: `Produk "${validatedData.name}" berhasil diupdate`,
     };
   } catch (error) {
-    console.error("Update product error:", error);
     return {
       success: false,
       message: "Terjadi kesalahan saat mengupdate produk",
@@ -523,7 +520,6 @@ export const updateVariantStock = async (
 
     return { success: true, message: "Stok berhasil diupdate" };
   } catch (error) {
-    console.error("Update stock error:", error);
     return {
       success: false,
       message: "Terjadi kesalahan saat mengupdate stok",

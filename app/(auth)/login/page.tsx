@@ -75,11 +75,7 @@ export default function LoginPage() {
             </div>
 
             {/* Submit */}
-            <Button
-              type="submit"
-              className={`w-full ${isPending ? "animate-spin" : ""}`}
-              disabled={isPending}
-            >
+            <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? "Loading..." : "Masuk"}
             </Button>
           </form>

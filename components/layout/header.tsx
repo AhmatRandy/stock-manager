@@ -22,7 +22,7 @@ export async function Header() {
 
   return (
     <header className="h-16 border-b bg-background flex items-center justify-between px-6">
-      <div className="text-lg font-semibold">ERP System</div>
+      <div className="text-lg font-semibold"></div>
 
       <div className="flex items-center gap-3">
         {session && (
@@ -54,17 +54,11 @@ export async function Header() {
                 <div className="border-t my-1" />
               </>
             )}
-            <DropdownMenuItem asChild>
-              <form action={logoutAction}>
-                <Button
-                  type="submit"
-                  variant="ghost"
-                  className="w-full justify-start px-2 text-destructive hover:text-destructive"
-                >
-                  Keluar
-                </Button>
-              </form>
-            </DropdownMenuItem>
+            <form action={logoutAction}>
+              <button className="w-full text-left px-2 text-destructive cursor-pointer rounded-sm hover:bg-destructive/10">
+                Keluar
+              </button>
+            </form>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
