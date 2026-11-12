@@ -36,6 +36,7 @@ export const getSession = cache(async (): Promise<JwtPayload | null> => {
 
 export const clearSession = async () => {
   const cookieStore = await cookies();
+
   cookieStore.delete("token");
   cookieStore.delete("token_exp");
 };
