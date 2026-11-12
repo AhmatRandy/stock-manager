@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
-import { redirect } from "next/navigation";
+import { requirePageSession } from "@/lib/auth";
+import { formatDisplayQty, fromScaled, toScaled } from "@/lib/stock";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Package, AlertTriangle, ShoppingCart } from "lucide-react";
 import { DateRangeFilter } from "@/components/ui/datepicker-with-range";
@@ -13,9 +13,7 @@ interface Props {
 }
 
 export default async function DashboardPage({ searchParams }: Props) {
-  const session = await getSession();
-  console.log("Session di DashboardPage:", session);
-  if (!session) redirect("/login");
+  const session = await requirePageSession();
 
   const { from, to } = await searchParams;
 
@@ -68,10 +66,11 @@ export default async function DashboardPage({ searchParams }: Props) {
 
     prisma.productVariant.findMany({
       where: {
-        product: { storeId: session.storeId },
-        stock: { lte: 5 },
+        deletedAt: null,
+        product: { storeId: session.storeId, deletedAt: null },
+        stock: { lte: toScaled(5) },
       },
-      include: { product: true },
+      include: { product: { select: { name: true } } },
       take: 5,
       orderBy: { stock: "asc" },
     }),
@@ -100,7 +99,7 @@ export default async function DashboardPage({ searchParams }: Props) {
   ]);
 
   const totalRevenue = totalSales._sum.grandTotal ?? 0;
-  const totalQty = totalItems._sum.quantity ?? 0;
+  const totalQty = formatDisplayQty(fromScaled(totalItems._sum.quantity ?? 0));
 
   // last7DaysTransactions is an array of { day: Date|string, total: string|number }
   const aggMap = new Map<string, number>();
@@ -232,7 +231,9 @@ export default async function DashboardPage({ searchParams }: Props) {
                   <span>
                     {v.productName} - {v.variantName}
                   </span>
-                  <span className="font-medium">{v._sum.quantity} pcs</span>
+                  <span className="font-medium">
+                    {formatDisplayQty(fromScaled(v._sum.quantity ?? 0))} terjual
+                  </span>
                 </li>
               ))}
             </ul>
@@ -256,7 +257,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                     {v.product.name} - {v.name}
                   </span>
                   <span className="font-medium text-red-500">
-                    {v.stock} tersisa
+                    {formatDisplayQty(fromScaled(v.stock))} {v.unit} tersisa
                   </span>
                 </li>
               ))}

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
-import { deleteProduct, updateVariantStock } from "../_actions/actions";
+import { deleteProduct, adjustVariantStock } from "../_actions/actions";
 import { useProductColumns } from "./columns";
 import type { ProductWithVariants } from "@/types/product";
 import { CategoryOption } from "@/types/category";
@@ -32,6 +32,7 @@ export const ProductList = ({ products, categories, onEdit }: Props) => {
     useState<ProductWithVariants | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [stockError, setStockError] = useState<string | null>(null);
 
   const handleDelete = () => {
     if (!productToDelete) return;
@@ -52,17 +53,13 @@ export const ProductList = ({ products, categories, onEdit }: Props) => {
     setError(null);
   };
 
-  const handleStockChange = (
-    variantId: string,
-    currentStock: number,
-    delta: number,
-  ) => {
-    const newStock = Math.max(
-      0,
-      Math.round((currentStock + delta) * 100) / 100,
-    );
+  const handleStockChange = (variantId: string, delta: number) => {
+    setStockError(null);
     startTransition(async () => {
-      await updateVariantStock(variantId, newStock);
+      const result = await adjustVariantStock(variantId, delta);
+      if (!result.success) {
+        setStockError(result.message ?? "Gagal mengubah stok");
+      }
     });
   };
 
@@ -112,6 +109,12 @@ export const ProductList = ({ products, categories, onEdit }: Props) => {
         </div>
       )}
 
+      {stockError && (
+        <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+          {stockError}
+        </div>
+      )}
+
       <DataTable
         columns={columns}
         data={filteredProducts}
@@ -125,8 +128,9 @@ export const ProductList = ({ products, categories, onEdit }: Props) => {
             <AlertDialogTitle>Hapus Produk?</AlertDialogTitle>
             <AlertDialogDescription>
               Anda yakin ingin menghapus produk{" "}
-              <strong>{productToDelete?.name}</strong>? Semua varian produk ini
-              akan ikut terhapus. Aksi ini tidak dapat dibatalkan.
+              <strong>{productToDelete?.name}</strong>? Produk dan semua
+              variannya tidak akan tampil lagi di daftar produk dan POS.
+              Riwayat transaksi tetap tersimpan.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -139,7 +143,10 @@ export const ProductList = ({ products, categories, onEdit }: Props) => {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Batal</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
               disabled={isPending}
               className="bg-destructive hover:bg-destructive/90"
             >

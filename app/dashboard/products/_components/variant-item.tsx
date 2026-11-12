@@ -81,17 +81,33 @@ export const VariantItem = ({
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">Stok</Label>
-              <Input
-                type="number"
-                name={`variants[${index}].stock`}
-                defaultValue={String(variant.stock)}
-                className="text-center"
-                disabled={disabled}
-                required
-                min="0"
-                step={variant.quantityType === "continuous" ? variant.step : 1}
-              />
+              <Label className="text-xs">
+                {variant.id ? "Stok saat ini" : "Stok awal"}
+              </Label>
+              {variant.id ? (
+                <>
+                  <Input
+                    value={String(variant.stock)}
+                    className="text-center"
+                    disabled
+                    readOnly
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Ubah lewat tombol +/− di daftar produk
+                  </p>
+                </>
+              ) : (
+                <Input
+                  type="number"
+                  name={`variants[${index}].stock`}
+                  defaultValue={String(variant.stock)}
+                  className="text-center"
+                  disabled={disabled}
+                  required
+                  min="0"
+                  step={variant.quantityType === "continuous" ? variant.step : 1}
+                />
+              )}
             </div>
           </div>
 

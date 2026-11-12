@@ -29,14 +29,12 @@ export default function LoginPage() {
 
         <CardContent>
           <form action={formAction} className="space-y-4">
-            {/* Pesan error global */}
             {state.message && (
               <div className="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
                 {state.message}
               </div>
             )}
 
-            {/* Email */}
             <div className="space-y-1">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -55,7 +53,6 @@ export default function LoginPage() {
               ))}
             </div>
 
-            {/* Password */}
             <div className="space-y-1">
               <Label htmlFor="password">Password</Label>
               <Input
@@ -74,7 +71,6 @@ export default function LoginPage() {
               ))}
             </div>
 
-            {/* Submit */}
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? "Loading..." : "Masuk"}
             </Button>

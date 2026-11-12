@@ -5,8 +5,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 import { revalidatePath } from "next/cache";
-import type { UserRow, ActionResult } from "@/types/user";
-import { getSession } from "@/lib/auth";
+import type { ActionResult } from "@/types/user";
+import { ACCESS, authorizeAction } from "@/lib/auth";
 import { $Enums } from "@/prisma/client/client";
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
@@ -42,38 +42,29 @@ const updateUserSchema = z.object({
   }),
 });
 
-// ── Queries ──────────────────────────────────────────────────────────────────
-
-export async function getUsers(options?: {
-  page?: number;
-  take?: number;
-}): Promise<UserRow[]> {
-  const session = await getSession();
-  if (!session) return [];
-
-  const take = options?.take ?? 100;
-  const page = options?.page && options.page > 0 ? options.page : 1;
-  const skip = (page - 1) * take;
-
-  return prisma.user.findMany({
-    where: { storeId: session.storeId },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
-    orderBy: { createdAt: "asc" },
-    skip,
-    take,
-  }) as Promise<UserRow[]>;
-}
+const countOtherOwners = (storeId: string, excludeUserId: string) =>
+  prisma.user.count({
+    where: {
+      storeId,
+      role: "OWNER",
+      deletedAt: null,
+      id: { not: excludeUserId },
+    },
+  });
 
 // ── Actions ──────────────────────────────────────────────────────────────────
+// Query daftar user ada di `@/server/queries/user`.
 
 export async function createUser(
   _prevState: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await getSession();
-  if (!session || session.role !== "OWNER") {
-    return { success: false, message: "Hanya OWNER yang dapat menambah user" };
-  }
+  const auth = await authorizeAction(
+    ACCESS.users,
+    "Hanya OWNER yang dapat menambah user",
+  );
+  if (!auth.ok) return { success: false, message: auth.message };
+  const { session } = auth;
 
   const parsed = createUserSchema.safeParse({
     name: formData.get("name"),
@@ -93,7 +84,12 @@ export async function createUser(
     where: { email: parsed.data.email },
   });
   if (exists) {
-    return { success: false, message: "Email sudah digunakan" };
+    return {
+      success: false,
+      message: exists.deletedAt
+        ? "Email sudah pernah dipakai user yang telah dihapus. Gunakan email lain."
+        : "Email sudah digunakan",
+    };
   }
 
   const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
@@ -120,10 +116,12 @@ export async function updateUser(
   userId: string,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await getSession();
-  if (!session || session.role !== "OWNER") {
-    return { success: false, message: "Hanya OWNER yang dapat mengubah user" };
-  }
+  const auth = await authorizeAction(
+    ACCESS.users,
+    "Hanya OWNER yang dapat mengubah user",
+  );
+  if (!auth.ok) return { success: false, message: auth.message };
+  const { session } = auth;
 
   const parsed = updateUserSchema.safeParse({
     name: formData.get("name"),
@@ -137,12 +135,22 @@ export async function updateUser(
     };
   }
 
-  // Pastikan user milik store yang sama
   const target = await prisma.user.findFirst({
-    where: { id: userId, storeId: session.storeId },
+    where: { id: userId, storeId: session.storeId, deletedAt: null },
   });
   if (!target) {
     return { success: false, message: "User tidak ditemukan" };
+  }
+
+  if (
+    target.role === "OWNER" &&
+    parsed.data.role !== "OWNER" &&
+    (await countOtherOwners(session.storeId, userId)) === 0
+  ) {
+    return {
+      success: false,
+      message: "Toko harus memiliki minimal 1 OWNER. Jadikan user lain OWNER terlebih dahulu.",
+    };
   }
 
   await prisma.user.update({
@@ -155,10 +163,12 @@ export async function updateUser(
 }
 
 export async function deleteUser(userId: string): Promise<ActionResult> {
-  const session = await getSession();
-  if (!session || session.role !== "OWNER") {
-    return { success: false, message: "Hanya OWNER yang dapat menghapus user" };
-  }
+  const auth = await authorizeAction(
+    ACCESS.users,
+    "Hanya OWNER yang dapat menghapus user",
+  );
+  if (!auth.ok) return { success: false, message: auth.message };
+  const { session } = auth;
 
   if (userId === session.id) {
     return {
@@ -168,13 +178,28 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
   }
 
   const target = await prisma.user.findFirst({
-    where: { id: userId, storeId: session.storeId },
+    where: { id: userId, storeId: session.storeId, deletedAt: null },
   });
   if (!target) {
     return { success: false, message: "User tidak ditemukan" };
   }
 
-  await prisma.user.delete({ where: { id: userId } });
+  if (
+    target.role === "OWNER" &&
+    (await countOtherOwners(session.storeId, userId)) === 0
+  ) {
+    return {
+      success: false,
+      message: "Toko harus memiliki minimal 1 OWNER",
+    };
+  }
+
+  // Soft delete: transaksi & riwayat stok user ini tetap utuh, dan
+  // getSession langsung menolak sesinya.
+  await prisma.user.update({
+    where: { id: userId },
+    data: { deletedAt: new Date() },
+  });
 
   revalidatePath("/dashboard/users");
   return { success: true, message: "User berhasil dihapus" };

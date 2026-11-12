@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { ColumnDef } from "@tanstack/react-table";
-import { Package, Tags, Plus, Minus, Edit, Trash2 } from "lucide-react";
+import { Package, Tags, Plus, Minus, Edit, Trash2, History } from "lucide-react";
 import { DataTableColumnHeader } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/format";
@@ -15,11 +16,7 @@ function formatQty(n: number): string {
 type Callbacks = {
   onEdit: (product: ProductWithVariants) => void;
   onDelete: (product: ProductWithVariants) => void;
-  onStockChange: (
-    variantId: string,
-    currentStock: number,
-    delta: number,
-  ) => void;
+  onStockChange: (variantId: string, delta: number) => void;
   isPending: boolean;
 };
 
@@ -89,10 +86,8 @@ export function useProductColumns({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          onStockChange(variant.id, variant.stock, -delta)
-                        }
-                        disabled={isPending || variant.stock === 0}
+                        onClick={() => onStockChange(variant.id, -delta)}
+                        disabled={isPending || variant.stock < delta}
                         className="h-7 w-7 p-0"
                       >
                         <Minus className="h-3 w-3" />
@@ -114,9 +109,7 @@ export function useProductColumns({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          onStockChange(variant.id, variant.stock, delta)
-                        }
+                        onClick={() => onStockChange(variant.id, delta)}
                         disabled={isPending}
                         className="h-7 w-7 p-0"
                       >
@@ -136,6 +129,11 @@ export function useProductColumns({
         enableSorting: false,
         cell: ({ row }) => (
           <div className="flex justify-end gap-1">
+            <Button variant="ghost" size="sm" asChild title="Riwayat stok">
+              <Link href={`/dashboard/products/${row.original.id}/stock`}>
+                <History className="h-4 w-4" />
+              </Link>
+            </Button>
             <Button
               variant="ghost"
               size="sm"

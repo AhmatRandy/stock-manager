@@ -7,8 +7,6 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { signJwt, JWT_EXPIRES_IN_SECONDS } from "@/lib/jwt";
 
-// ─── Skema Validasi ───────────────────────────────────────────────────────────
-
 const loginSchema = z.object({
   email: z
     .string()
@@ -19,8 +17,6 @@ const loginSchema = z.object({
     .min(1, "Password wajib diisi")
     .min(6, "Password minimal 6 karakter"),
 });
-
-// ─── Tipe State ───────────────────────────────────────────────────────────────
 
 export type LoginState = {
   success: boolean;
@@ -40,7 +36,6 @@ export async function loginAction(
     password: formData.get("password") as string,
   };
 
-  // Validasi Zod
   const result = loginSchema.safeParse(raw);
   if (!result.success) {
     return {
@@ -51,27 +46,23 @@ export async function loginAction(
 
   const { email, password } = result.data;
 
-  // Cek user di database
   let user;
   try {
     user = await prisma.user.findUnique({ where: { email } });
-  } catch (e) {
-    // Log detail error di server agar bisa didiagnosis
-    // eslint-disable-next-line no-console
-    console.error("[login] Prisma error while finding user:", e);
+  } catch (e: any) {
     return {
       success: false,
-      message: "Terjadi kesalahan pada server saat mencoba login. Cek log server.",
+      message:
+        "Terjadi kesalahan pada server saat mencoba login. Cek log server.",
     };
   }
-  if (!user) {
+  if (!user || user.deletedAt) {
     return {
       success: false,
       message: "Email atau password salah",
     };
   }
 
-  // Verifikasi password
   const passwordMatch = await bcrypt.compare(password, user.password);
   if (!passwordMatch) {
     return {
@@ -80,7 +71,6 @@ export async function loginAction(
     };
   }
 
-  // Buat token JWT
   const token = signJwt({
     id: user.id,
     name: user.name,
@@ -93,7 +83,6 @@ export async function loginAction(
 
   const cookieStore = await cookies();
 
-  // Cookie httpOnly untuk keamanan (tidak bisa dibaca JS)
   cookieStore.set("token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -102,7 +91,6 @@ export async function loginAction(
     maxAge: JWT_EXPIRES_IN_SECONDS,
   });
 
-  // Cookie non-httpOnly agar client bisa membaca waktu expiry untuk auto-logout
   cookieStore.set("token_exp", String(expTimestamp), {
     httpOnly: false,
     secure: process.env.NODE_ENV === "production",

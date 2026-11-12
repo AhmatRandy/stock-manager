@@ -1,7 +1,5 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
-
-import { getPosProducts } from "./_actions/actions";
+import { requirePageSession } from "@/lib/auth";
+import { getPosProducts } from "@/server/queries/product";
 import { PosClient } from "./_components/pos-client";
 
 interface Props {
@@ -13,8 +11,7 @@ interface Props {
 }
 
 export default async function PosPage({ searchParams }: Props) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requirePageSession();
 
   const { page, take, search } = await searchParams;
   const pageNum = page ? Math.max(1, Number(page) || 1) : 1;

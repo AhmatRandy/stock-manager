@@ -2,18 +2,18 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { authorizeAction } from "@/lib/auth";
 import { toScaled, fromScaled, validateQuantity } from "@/lib/stock";
+import { applyStockDelta, StockError } from "@/server/stock";
 import { CheckoutState, QuantityType } from "@/types/product";
 
+// Hanya variantId & quantity yang dipercaya dari client. Harga dan nama
+// produk/varian selalu diambil dari database (field lain di payload diabaikan).
 const checkoutSchema = z.object({
   items: z
     .array(
       z.object({
         variantId: z.string().min(1),
-        productName: z.string().min(1),
-        variantName: z.string().min(1),
-        price: z.number().int().positive(),
         quantity: z.number().positive(),
       }),
     )
@@ -22,21 +22,20 @@ const checkoutSchema = z.object({
   discount: z.number().int().min(0).default(0),
 });
 
-function generateInvoiceNo(): string {
-  const now = new Date();
-  const ymd = now.toISOString().slice(0, 10).replace(/-/g, "");
-  const ms = String(now.getTime()).slice(-6);
-  return `INV-${ymd}-${ms}`;
-}
+const STORE_TIMEZONE = "Asia/Jakarta";
+
+const invoiceDateKey = (date: Date) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: STORE_TIMEZONE })
+    .format(date)
+    .replace(/-/g, "");
 
 export async function checkoutAction(
   _prevState: CheckoutState,
   formData: FormData,
 ): Promise<CheckoutState> {
-  const session = await getSession();
-  if (!session) {
-    return { success: false, message: "Sesi habis, silakan login ulang" };
-  }
+  const auth = await authorizeAction();
+  if (!auth.ok) return { success: false, message: auth.message };
+  const { session } = auth;
 
   let raw: unknown;
   try {
@@ -47,31 +46,47 @@ export async function checkoutAction(
 
   const parsed = checkoutSchema.safeParse(raw);
   if (!parsed.success) {
-    const issues =
-      (parsed.error as any).issues ?? (parsed.error as any).errors ?? [];
-    const firstError = issues[0]?.message ?? "Data tidak valid";
+    const firstError = parsed.error.issues[0]?.message ?? "Data tidak valid";
     return { success: false, message: firstError };
   }
 
   const { items, payment, discount } = parsed.data;
 
-  for (const item of items) {
-    const variant = await prisma.productVariant.findUnique({
-      where: { id: item.variantId },
-      select: {
-        name: true,
-        unit: true,
-        stock: true,
-        quantityType: true,
-        step: true,
-        minOrder: true,
-      },
-    });
+  const variants = await prisma.productVariant.findMany({
+    where: {
+      id: { in: [...new Set(items.map((i) => i.variantId))] },
+      deletedAt: null,
+      product: { storeId: session.storeId, deletedAt: null },
+    },
+    select: {
+      id: true,
+      name: true,
+      unit: true,
+      price: true,
+      stock: true,
+      quantityType: true,
+      step: true,
+      minOrder: true,
+      product: { select: { name: true } },
+    },
+  });
+  const variantById = new Map(variants.map((v) => [v.id, v]));
 
+  const lines: Array<{
+    variantId: string;
+    productName: string;
+    variantName: string;
+    unit: string;
+    price: number;
+    quantity: number;
+    subtotal: number;
+  }> = [];
+  for (const item of items) {
+    const variant = variantById.get(item.variantId);
     if (!variant) {
       return {
         success: false,
-        message: `Produk tidak ditemukan: ${item.variantName}`,
+        message: "Produk tidak ditemukan, silakan muat ulang halaman",
       };
     }
 
@@ -86,12 +101,22 @@ export async function checkoutAction(
     if (!result.valid) {
       return {
         success: false,
-        message: `${item.productName} (${item.variantName}): ${result.message}`,
+        message: `${variant.product.name} (${variant.name}): ${result.message}`,
       };
     }
+
+    lines.push({
+      variantId: variant.id,
+      productName: variant.product.name,
+      variantName: variant.name,
+      unit: variant.unit,
+      price: variant.price,
+      quantity: item.quantity,
+      subtotal: Math.round(variant.price * item.quantity),
+    });
   }
 
-  const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const total = lines.reduce((sum, l) => sum + l.subtotal, 0);
   const grandTotal = Math.max(0, total - discount);
 
   if (payment < grandTotal) {
@@ -102,109 +127,76 @@ export async function checkoutAction(
   }
 
   const change = payment - grandTotal;
-  const invoiceNo = generateInvoiceNo();
+  const dateKey = invoiceDateKey(new Date());
+
+  // Baris yang sedang diproses, untuk pesan error stok yang jelas.
+  let currentLine: (typeof lines)[number] | undefined;
 
   try {
-    await prisma.$transaction(async (tx) => {
-      for (const item of items) {
-        const scaledQty = toScaled(item.quantity);
+    const invoiceNo = await prisma.$transaction(
+      async (tx) => {
+        const counter = await tx.invoiceCounter.upsert({
+          where: { storeId_date: { storeId: session.storeId, date: dateKey } },
+          create: { storeId: session.storeId, date: dateKey, last: 1 },
+          update: { last: { increment: 1 } },
+          select: { last: true },
+        });
+        const invoiceNo = `INV-${dateKey}-${String(counter.last).padStart(4, "0")}`;
 
-        const result = await tx.productVariant.updateMany({
-          where: {
-            id: item.variantId,
-            stock: { gte: scaledQty },
-          },
+        const transaction = await tx.transaction.create({
           data: {
-            stock: { decrement: scaledQty },
+            invoiceNo,
+            total,
+            discount,
+            grandTotal,
+            payment,
+            change,
+            storeId: session.storeId,
+            userId: session.id,
+            items: {
+              create: lines.map((line) => ({
+                variantId: line.variantId,
+                productName: line.productName,
+                variantName: line.variantName,
+                price: line.price,
+                quantity: toScaled(line.quantity),
+                subtotal: line.subtotal,
+              })),
+            },
           },
+          select: { id: true },
         });
 
-        if (result.count === 0) {
-          const variant = await tx.productVariant.findUnique({
-            where: { id: item.variantId },
-            select: { name: true, stock: true, unit: true },
+        for (const line of lines) {
+          currentLine = line;
+          await applyStockDelta(tx, {
+            storeId: session.storeId,
+            variantId: line.variantId,
+            delta: -toScaled(line.quantity),
+            type: "SALE",
+            userId: session.id,
+            transactionId: transaction.id,
           });
-          const sisaStok = variant
-            ? `${fromScaled(variant.stock)} ${variant.unit}`
-            : "0";
-          const namaVariant = variant
-            ? `${item.productName} (${variant.name}) — stok tersisa ${sisaStok}`
-            : item.variantName;
-          throw new Error(`Stok tidak mencukupi: ${namaVariant}`);
         }
-      }
 
-      await tx.transaction.create({
-        data: {
-          invoiceNo,
-          total,
-          discount,
-          grandTotal,
-          payment,
-          change,
-          storeId: session.storeId,
-          userId: session.id,
-          items: {
-            create: items.map((item) => ({
-              variantId: item.variantId,
-              productName: item.productName,
-              variantName: item.variantName,
-              price: item.price,
-              quantity: toScaled(item.quantity),
-              subtotal: Math.round(item.price * item.quantity),
-            })),
-          },
-        },
-      });
-    });
+        return invoiceNo;
+      },
+      { timeout: 20_000 },
+    );
 
     return { success: true, invoiceNo };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Terjadi kesalahan, coba lagi";
-    return { success: false, message };
+    if (err instanceof StockError && currentLine) {
+      const label = `${currentLine.productName} (${currentLine.variantName})`;
+      return {
+        success: false,
+        message:
+          err.code === "INSUFFICIENT"
+            ? `Stok tidak mencukupi: ${label} — stok tersisa ${fromScaled(err.currentStock)} ${currentLine.unit}`
+            : `Produk tidak ditemukan: ${label}, silakan muat ulang halaman`,
+      };
+    }
+    console.error("checkoutAction gagal:", err);
+    return { success: false, message: "Terjadi kesalahan, coba lagi" };
   }
-}
-
-export async function getPosProducts(
-  storeId: string,
-  options?: { take?: number; page?: number; search?: string },
-) {
-  const take = options?.take ?? 100;
-  const page = options?.page && options.page > 0 ? options.page : 1;
-  const skip = (page - 1) * take;
-
-  const where: any = { storeId };
-  if (options?.search && options.search.trim() !== "") {
-    where.OR = [
-      { name: { contains: options.search, mode: "insensitive" } },
-      {
-        variants: {
-          some: { name: { contains: options.search, mode: "insensitive" } },
-        },
-      },
-    ];
-  }
-
-  const rows = await prisma.product.findMany({
-    where,
-    include: {
-      category: { select: { id: true, name: true } },
-      variants: { orderBy: { price: "asc" } },
-    },
-    orderBy: { name: "asc" },
-    skip,
-    take,
-  });
-
-  return rows.map((p) => ({
-    ...p,
-    variants: p.variants.map((v) => ({
-      ...v,
-      stock: fromScaled(v.stock),
-      step: fromScaled(v.step),
-      minOrder: fromScaled(v.minOrder),
-      quantityType: v.quantityType as QuantityType,
-    })),
-  }));
 }

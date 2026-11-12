@@ -1,8 +1,8 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Store, User, Clock } from "lucide-react";
-import { getSession } from "@/lib/auth";
-import { getTransactionById } from "../_actions/actions";
+import { requirePageSession } from "@/lib/auth";
+import { getTransactionById } from "@/server/queries/transaction";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -22,11 +22,10 @@ interface Props {
 }
 
 export default async function TransactionDetailPage({ params }: Props) {
-  const session = await getSession();
-  if (!session) redirect("/login");
+  const session = await requirePageSession();
 
   const { id } = await params;
-  const transaction = await getTransactionById(id);
+  const transaction = await getTransactionById(session.storeId, id);
 
   if (!transaction) notFound();
 

@@ -45,6 +45,8 @@ export function useVariants(initial?: Variant[] | null) {
         }))
       : [DEFAULT_VARIANT],
   );
+  // ID varian tersimpan yang dihapus user, dikirim eksplisit ke server.
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
 
   const addVariant = useCallback(() => {
     setVariants((prev) => [
@@ -63,11 +65,15 @@ export function useVariants(initial?: Variant[] | null) {
     ]);
   }, []);
 
-  const removeVariant = useCallback((index: number) => {
-    setVariants((prev) =>
-      prev.length > 1 ? prev.filter((_, i) => i !== index) : prev,
-    );
-  }, []);
+  const removeVariant = useCallback(
+    (index: number) => {
+      if (variants.length <= 1) return;
+      const removedId = variants[index]?.id;
+      if (removedId) setDeletedIds((ids) => [...ids, removedId]);
+      setVariants(variants.filter((_, i) => i !== index));
+    },
+    [variants],
+  );
 
   const updateVariant = useCallback(
     (index: number, patch: Partial<LocalVariant>) => {
@@ -78,9 +84,13 @@ export function useVariants(initial?: Variant[] | null) {
     [],
   );
 
-  const reset = useCallback(() => setVariants([DEFAULT_VARIANT]), []);
+  const reset = useCallback(() => {
+    setVariants([DEFAULT_VARIANT]);
+    setDeletedIds([]);
+  }, []);
 
   const initFrom = useCallback((items?: Variant[] | null) => {
+    setDeletedIds([]);
     if (items && items.length)
       setVariants(
         items.map((v) => ({
@@ -100,6 +110,7 @@ export function useVariants(initial?: Variant[] | null) {
 
   return {
     variants,
+    deletedIds,
     setVariants,
     addVariant,
     removeVariant,

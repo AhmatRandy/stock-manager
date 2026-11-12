@@ -12,12 +12,11 @@ type Props = {
   isOwner: boolean;
 };
 
-export function CategoryClient({ categories, isOwner }: Props) {
+export const CategoryClient = ({ categories, isOwner }: Props) => {
   const [formOpen, setFormOpen] = useState(false);
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Kategori</h1>
@@ -25,6 +24,7 @@ export function CategoryClient({ categories, isOwner }: Props) {
             Kelompokkan produk Anda agar mudah dicari di POS dan laporan
           </p>
         </div>
+
         {isOwner && (
           <Button onClick={() => setFormOpen(true)}>
             <Plus className="h-4 w-4 mr-1" />
@@ -44,4 +44,4 @@ export function CategoryClient({ categories, isOwner }: Props) {
       <CategoryFormDialog open={formOpen} onOpenChange={setFormOpen} />
     </div>
   );
-}
+};

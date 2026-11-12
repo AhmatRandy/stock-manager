@@ -20,78 +20,90 @@ model Category {
 }
 
 model Store {
-  id            String        @id @default(uuid())
-  name          String
-  address       String?
-  phone         String?
-  currency      String        @default("IDR")
-  taxPercent    Int           @default(0)
-  receiptHeader String?
-  receiptFooter String?
-  createdAt     DateTime      @default(now())
-  categories    Category[]
-  products      Product[]
-  transactions  Transaction[]
-  users         User[]
+  id              String           @id @default(uuid())
+  name            String
+  address         String?
+  phone           String?
+  currency        String           @default("IDR")
+  taxPercent      Int              @default(0)
+  receiptHeader   String?
+  receiptFooter   String?
+  createdAt       DateTime         @default(now())
+  categories      Category[]
+  products        Product[]
+  transactions    Transaction[]
+  users           User[]
+  stockMovements  StockMovement[]
+  invoiceCounters InvoiceCounter[]
 }
 
 model User {
-  id           String        @id @default(uuid())
-  name         String
-  email        String        @unique
-  password     String
-  role         Role
-  storeId      String
-  createdAt    DateTime      @default(now())
-  transactions Transaction[]
-  store        Store         @relation(fields: [storeId], references: [id])
+  id             String          @id @default(uuid())
+  name           String
+  email          String          @unique
+  password       String
+  role           Role
+  storeId        String
+  createdAt      DateTime        @default(now())
+  deletedAt      DateTime?
+  transactions   Transaction[]
+  stockMovements StockMovement[]
+  store          Store           @relation(fields: [storeId], references: [id])
 }
 
+/// Nama produk unik per toko (case-insensitive) dicek di aplikasi, bukan
+/// constraint DB, karena produk yang di-soft-delete tetap ada di tabel.
 model Product {
   id         String           @id @default(uuid())
   name       String
   storeId    String
   categoryId String?
   createdAt  DateTime         @default(now())
+  deletedAt  DateTime?
   category   Category?        @relation(fields: [categoryId], references: [id])
   store      Store            @relation(fields: [storeId], references: [id])
   variants   ProductVariant[]
 
-  @@unique([storeId, name])
+  @@index([storeId])
   @@index([categoryId])
 }
 
+/// `stock`, `step`, dan `minOrder` disimpan ×100 (lihat lib/stock.ts).
 model ProductVariant {
-  id           String   @id @default(uuid())
-  productId    String
-  name         String
-  unit         String   @default("pcs")
-  price        Int
-  stock        Int      @default(0)
-  quantityType String   @default("discrete")
-  step         Int      @default(100)
-  minOrder     Int      @default(100)
-  createdAt    DateTime @default(now())
-  product      Product  @relation(fields: [productId], references: [id])
+  id             String          @id @default(uuid())
+  productId      String
+  name           String
+  unit           String          @default("pcs")
+  price          Int
+  stock          Int             @default(0)
+  quantityType   String          @default("discrete")
+  step           Int             @default(100)
+  minOrder       Int             @default(100)
+  createdAt      DateTime        @default(now())
+  deletedAt      DateTime?
+  product        Product         @relation(fields: [productId], references: [id])
+  stockMovements StockMovement[]
 
   @@index([productId])
 }
 
 model Transaction {
-  id         String            @id @default(uuid())
-  invoiceNo  String            @unique
-  total      Int
-  discount   Int               @default(0)
-  grandTotal Int
-  payment    Int
-  change     Int
-  storeId    String
-  userId     String
-  createdAt  DateTime          @default(now())
-  store      Store             @relation(fields: [storeId], references: [id])
-  user       User              @relation(fields: [userId], references: [id])
-  items      TransactionItem[]
+  id             String            @id @default(uuid())
+  invoiceNo      String
+  total          Int
+  discount       Int               @default(0)
+  grandTotal     Int
+  payment        Int
+  change         Int
+  storeId        String
+  userId         String
+  createdAt      DateTime          @default(now())
+  store          Store             @relation(fields: [storeId], references: [id])
+  user           User              @relation(fields: [userId], references: [id])
+  items          TransactionItem[]
+  stockMovements StockMovement[]
 
+  @@unique([storeId, invoiceNo])
   @@index([storeId])
   @@index([createdAt])
   @@index([storeId, createdAt])
@@ -113,8 +125,47 @@ model TransactionItem {
   @@index([variantId, createdAt])
 }
 
+/// Setiap perubahan stok dicatat di sini. `quantity` bertanda (+ masuk,
+/// - keluar) dan bersama `stockAfter` disimpan ×100 seperti ProductVariant.stock.
+model StockMovement {
+  id            String            @id @default(uuid())
+  storeId       String
+  variantId     String
+  type          StockMovementType
+  quantity      Int
+  stockAfter    Int
+  note          String?
+  userId        String?
+  transactionId String?
+  createdAt     DateTime          @default(now())
+  store         Store             @relation(fields: [storeId], references: [id])
+  variant       ProductVariant    @relation(fields: [variantId], references: [id])
+  user          User?             @relation(fields: [userId], references: [id])
+  transaction   Transaction?      @relation(fields: [transactionId], references: [id])
+
+  @@index([variantId, createdAt])
+  @@index([storeId, createdAt])
+  @@index([transactionId])
+}
+
+/// Nomor urut invoice per toko per hari (tanggal WIB, format YYYYMMDD).
+model InvoiceCounter {
+  storeId String
+  date    String
+  last    Int    @default(0)
+  store   Store  @relation(fields: [storeId], references: [id])
+
+  @@id([storeId, date])
+}
+
 enum Role {
   OWNER
   MANAGER
   CASHIER
+}
+
+enum StockMovementType {
+  INITIAL
+  SALE
+  ADJUSTMENT
 }

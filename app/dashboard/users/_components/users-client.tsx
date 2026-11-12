@@ -50,6 +50,7 @@ export function UsersClient({ users, currentUserId }: Props) {
   const [editUser, setEditUser] = useState<UserRow | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<UserRow | undefined>();
   const [isPending, startTransition] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleEdit = (user: UserRow) => {
     setEditUser(user);
@@ -63,9 +64,14 @@ export function UsersClient({ users, currentUserId }: Props) {
 
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
+    setDeleteError(null);
     startTransition(async () => {
-      await deleteUser(deleteTarget.id);
-      setDeleteTarget(undefined);
+      const result = await deleteUser(deleteTarget.id);
+      if (result.success) {
+        setDeleteTarget(undefined);
+      } else {
+        setDeleteError(result.message ?? "Gagal menghapus user");
+      }
     });
   };
 
@@ -189,20 +195,33 @@ export function UsersClient({ users, currentUserId }: Props) {
       {/* Delete Confirm */}
       <AlertDialog
         open={!!deleteTarget}
-        onOpenChange={(val) => !val && setDeleteTarget(undefined)}
+        onOpenChange={(val) => {
+          if (!val) {
+            setDeleteTarget(undefined);
+            setDeleteError(null);
+          }
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus User?</AlertDialogTitle>
             <AlertDialogDescription>
-              User <strong>{deleteTarget?.name}</strong> akan dihapus secara
-              permanen. Tindakan ini tidak dapat dibatalkan.
+              User <strong>{deleteTarget?.name}</strong> tidak akan bisa login
+              lagi. Riwayat transaksi yang dibuat user ini tetap tersimpan.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && (
+            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+              {deleteError}
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Batal</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmDelete}
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmDelete();
+              }}
               disabled={isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

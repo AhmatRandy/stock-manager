@@ -22,18 +22,23 @@ async function main() {
     },
   });
 
-  const ownerPassword = await bcrypt.hash("password", 10);
-  const owner = await prisma.user.upsert({
-    where: { email: "owner@example.com" },
-    update: {},
-    create: {
-      name: "Owner",
-      email: "owner@example.com",
-      password: ownerPassword,
-      role: "OWNER",
-      storeId: store.id,
-    },
-  });
+  const password = await bcrypt.hash("password", 10);
+  const demoUsers = [
+    { name: "Owner", email: "owner@example.com", role: "OWNER" },
+    { name: "Manager", email: "manager@example.com", role: "MANAGER" },
+    { name: "Cashier", email: "cashier@example.com", role: "CASHIER" },
+  ] as const;
+
+  const users = [];
+  for (const u of demoUsers) {
+    users.push(
+      await prisma.user.upsert({
+        where: { email: u.email },
+        update: {},
+        create: { ...u, password, storeId: store.id },
+      }),
+    );
+  }
 
   const category = await prisma.category.upsert({
     where: { storeId_name: { storeId: store.id, name: "General" } },
@@ -65,7 +70,10 @@ async function main() {
     },
   });
 
-  console.log("Seed finished: ", { store: store.name, owner: owner.email });
+  console.log("Seed finished: ", {
+    store: store.name,
+    users: users.map((u) => `${u.email} (${u.role})`),
+  });
 }
 
 main()

@@ -1,21 +1,15 @@
 import { Suspense } from "react";
-import { getSession } from "@/lib/auth";
-import { getProducts } from "./_actions/actions";
-
-import { getCategoryOptions } from "@/app/dashboard/category/_actions/actions";
+import { ACCESS, requirePageSession } from "@/lib/auth";
+import { getProducts } from "@/server/queries/product";
+import { getCategoryOptions } from "@/server/queries/category";
 import { ProductsClient } from "@/app/dashboard/products/_components/products-client";
-import { notFound } from "next/navigation";
 
 export default async function ProductsPage() {
-  const session = await getSession();
-  console.log("Session in ProductsPage:", session);
-  if (!session || !["OWNER", "MANAGER"].includes(session.role)) {
-    notFound();
-  }
+  const session = await requirePageSession(ACCESS.products);
 
   const [products, categories] = await Promise.all([
-    getProducts(),
-    getCategoryOptions(),
+    getProducts(session.storeId),
+    getCategoryOptions(session.storeId),
   ]);
 
   return (

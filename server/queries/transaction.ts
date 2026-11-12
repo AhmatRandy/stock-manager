@@ -1,18 +1,11 @@
-"use server";
-
+import "server-only";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
-import { TransactionDetail, TransactionRow } from "@/types/transaction";
+import type { TransactionDetail, TransactionRow } from "@/types/transaction";
 
-export const getTransactions = async (params?: {
-  from?: string;
-  to?: string;
-  page?: number;
-  take?: number;
-}): Promise<TransactionRow[]> => {
-  const session = await getSession();
-  if (!session) return [];
-
+export const getTransactions = (
+  storeId: string,
+  params?: { from?: string; to?: string; page?: number; take?: number },
+): Promise<TransactionRow[]> => {
   const today = new Date();
   today.setHours(23, 59, 59, 999);
 
@@ -31,7 +24,7 @@ export const getTransactions = async (params?: {
 
   return prisma.transaction.findMany({
     where: {
-      storeId: session.storeId,
+      storeId,
       createdAt: { gte: fromDate, lte: toDate },
     },
     include: {
@@ -44,14 +37,12 @@ export const getTransactions = async (params?: {
   });
 };
 
-export const getTransactionById = async (
+export const getTransactionById = (
+  storeId: string,
   id: string,
-): Promise<TransactionDetail | null> => {
-  const session = await getSession();
-  if (!session) return null;
-
-  return prisma.transaction.findFirst({
-    where: { id, storeId: session.storeId },
+): Promise<TransactionDetail | null> =>
+  prisma.transaction.findFirst({
+    where: { id, storeId },
     include: {
       user: { select: { name: true } },
       store: { select: { name: true, address: true, phone: true } },
@@ -68,4 +59,3 @@ export const getTransactionById = async (
       },
     },
   });
-};

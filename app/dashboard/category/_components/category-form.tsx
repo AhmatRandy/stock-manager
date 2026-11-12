@@ -31,7 +31,6 @@ export function CategoryFormDialog({ open, onOpenChange, category }: Props) {
     null,
   );
 
-  // tutup dialog otomatis setelah sukses
   useEffect(() => {
     if (state?.success) {
       onOpenChange(false);

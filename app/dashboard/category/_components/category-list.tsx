@@ -176,7 +176,10 @@ export function CategoryList({ categories, isOwner }: Props) {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Batal</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
               disabled={isPending}
               className="bg-destructive hover:bg-destructive/90"
             >

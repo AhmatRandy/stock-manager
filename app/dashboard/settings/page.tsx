@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
-import { getStore } from "./_actions/actions";
+import { ACCESS, requirePageSession } from "@/lib/auth";
+import { getStore } from "@/server/queries/store";
 import { SettingsForm } from "./_components/settings-form";
 
 export default async function SettingsPage() {
-  const session = await getSession();
-  if (!session) redirect("/dashboard");
+  const session = await requirePageSession(ACCESS.settings);
 
   const store = await getStore(session.storeId);
   if (!store) redirect("/dashboard");

@@ -2,14 +2,9 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import type * as Prisma from "@prisma/client";
-import { getSession } from "@/lib/auth";
+import { ACCESS, authorizeAction } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import {
-  ActionResult,
-  CategoryOption,
-  CategoryWithCount,
-} from "@/types/category";
+import { ActionResult } from "@/types/category";
 
 const categorySchema = z.object({
   name: z
@@ -25,57 +20,16 @@ const revalidate = () => {
   revalidatePath("/dashboard/pos");
 };
 
-export const getCategories = async (options?: {
-  page?: number;
-  take?: number;
-}): Promise<CategoryWithCount[]> => {
-  const session = await getSession();
-  if (!session) return [];
-
-  const take = options?.take ?? 100;
-  const page = options?.page && options.page > 0 ? options.page : 1;
-  const skip = (page - 1) * take;
-
-  return prisma.category.findMany({
-    where: { storeId: session.storeId },
-    include: { _count: { select: { products: true } } },
-    orderBy: { name: "asc" },
-    skip,
-    take,
-  });
-};
-
-export const getCategoryOptions = async (options?: {
-  take?: number;
-  page?: number;
-}): Promise<CategoryOption[]> => {
-  const session = await getSession();
-  if (!session) return [];
-
-  const take = options?.take ?? 100;
-  const page = options?.page && options.page > 0 ? options.page : 1;
-  const skip = (page - 1) * take;
-
-  return prisma.category.findMany({
-    where: { storeId: session.storeId },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-    skip,
-    take,
-  });
-};
-
 export const createCategory = async (
   _prevState: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> => {
-  const session = await getSession();
-  if (!session || session.role !== "OWNER") {
-    return {
-      success: false,
-      message: "Hanya OWNER yang dapat membuat kategori",
-    };
-  }
+  const auth = await authorizeAction(
+    ACCESS.categoryWrite,
+    "Hanya OWNER yang dapat membuat kategori",
+  );
+  if (!auth.ok) return { success: false, message: auth.message };
+  const { session } = auth;
 
   const parsed = categorySchema.safeParse({ name: formData.get("name") });
   if (!parsed.success) {
@@ -113,13 +67,12 @@ export const updateCategory = async (
   categoryId: string,
   formData: FormData,
 ): Promise<ActionResult> => {
-  const session = await getSession();
-  if (!session || session.role !== "OWNER") {
-    return {
-      success: false,
-      message: "Hanya OWNER yang dapat mengubah kategori",
-    };
-  }
+  const auth = await authorizeAction(
+    ACCESS.categoryWrite,
+    "Hanya OWNER yang dapat mengubah kategori",
+  );
+  if (!auth.ok) return { success: false, message: auth.message };
+  const { session } = auth;
 
   const parsed = categorySchema.safeParse({ name: formData.get("name") });
   if (!parsed.success) {
@@ -162,13 +115,12 @@ export const updateCategory = async (
 export const deleteCategory = async (
   categoryId: string,
 ): Promise<ActionResult> => {
-  const session = await getSession();
-  if (!session || session.role !== "OWNER") {
-    return {
-      success: false,
-      message: "Hanya OWNER yang dapat menghapus kategori",
-    };
-  }
+  const auth = await authorizeAction(
+    ACCESS.categoryWrite,
+    "Hanya OWNER yang dapat menghapus kategori",
+  );
+  if (!auth.ok) return { success: false, message: auth.message };
+  const { session } = auth;
 
   const category = await prisma.category.findFirst({
     where: { id: categoryId, storeId: session.storeId },
@@ -178,9 +130,9 @@ export const deleteCategory = async (
     return { success: false, message: "Kategori tidak ditemukan" };
   }
 
-  await prisma.$transaction(async (tx: any) => {
+  await prisma.$transaction(async (tx) => {
     await tx.product.updateMany({
-      where: { categoryId },
+      where: { categoryId, storeId: session.storeId },
       data: { categoryId: null },
     });
     await tx.category.delete({ where: { id: categoryId } });

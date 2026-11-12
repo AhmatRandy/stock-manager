@@ -4,8 +4,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
 import { revalidatePath } from "next/cache";
-import type { StoreData, ActionResult } from "@/types/store";
-import { getSession } from "@/lib/auth";
+import type { ActionResult } from "@/types/store";
+import { ACCESS, authorizeAction } from "@/lib/auth";
 
 const settingsSchema = z.object({
   name: z
@@ -29,35 +29,16 @@ const settingsSchema = z.object({
   receiptFooter: z.string().max(500).trim().optional(),
 });
 
-export async function getStore(storeId: string): Promise<StoreData | null> {
-  const store = await prisma.store.findUnique({
-    where: { id: storeId },
-    select: {
-      id: true,
-      name: true,
-      address: true,
-      phone: true,
-      currency: true,
-      taxPercent: true,
-      receiptHeader: true,
-      receiptFooter: true,
-    },
-  });
-
-  return store;
-}
-
 export async function updateStoreSettings(
   _prevState: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await getSession();
-  if (!session || session.role !== "OWNER") {
-    return {
-      success: false,
-      message: "Hanya OWNER yang dapat mengubah pengaturan toko",
-    };
-  }
+  const auth = await authorizeAction(
+    ACCESS.settings,
+    "Hanya OWNER yang dapat mengubah pengaturan toko",
+  );
+  if (!auth.ok) return { success: false, message: auth.message };
+  const { session } = auth;
 
   const raw = {
     name: formData.get("name"),

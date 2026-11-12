@@ -15,13 +15,7 @@ export default function NotFound() {
           href="/dashboard"
           className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-md shadow-sm hover:opacity-90"
         >
-          Kembali ke Dashboard
-        </Link>
-        <Link
-          href="/"
-          className="inline-flex items-center px-4 py-2 border rounded-md"
-        >
-          Beranda
+          Kembali
         </Link>
       </div>
     </div>

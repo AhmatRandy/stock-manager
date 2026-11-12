@@ -48,6 +48,7 @@ export const ProductFormDialog = ({
 
   const {
     variants,
+    deletedIds,
     addVariant,
     removeVariant,
     updateVariant,
@@ -87,6 +88,11 @@ export const ProductFormDialog = ({
         </DialogHeader>
 
         <form action={formAction} className="space-y-6">
+          <input
+            type="hidden"
+            name="deletedVariantIds"
+            value={deletedIds.join(",")}
+          />
           <div className="space-y-2">
             <Label htmlFor="name">Nama Produk</Label>
             <Input

@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify, errors as joseErrors } from "jose";
 
-const secret = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "super-secret-erp-key",
-);
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET belum diset di environment");
+}
+
+const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 
 const PUBLIC_ROUTES = ["/login"];
 
